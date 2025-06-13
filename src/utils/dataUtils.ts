@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from 'uuid';
 
 // Data type definitions
@@ -79,6 +78,8 @@ export interface Project {
   milestones?: Milestone[];
   risks?: string[];
   client_satisfaction?: number;
+  created_date: string;
+  modified_date: string;
 }
 
 export interface Milestone {
