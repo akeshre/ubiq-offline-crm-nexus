@@ -6,8 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
-// Import Firebase to initialize
-import "@/lib/firebase";
+import { initializeSampleData } from "@/utils/dataUtils";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
@@ -15,8 +14,8 @@ const queryClient = new QueryClient();
 
 const App = () => {
   useEffect(() => {
-    console.log('🚀 UBIQ CRM with Firestore initialized');
-    console.log('🔥 Firebase connected and ready');
+    // Initialize sample data on first load
+    initializeSampleData();
   }, []);
 
   return (

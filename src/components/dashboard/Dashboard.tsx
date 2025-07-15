@@ -9,7 +9,6 @@ import DealsModule from "@/components/deals/DealsModule";
 import ProjectsModule from "@/components/projects/ProjectsModule";
 import TasksModule from "@/components/tasks/TasksModule";
 import ReportsModule from "@/components/reports/ReportsModule";
-import AnalyticsModule from "@/components/analytics/AnalyticsModule";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -17,7 +16,6 @@ const Dashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const renderModule = () => {
-    console.log('🔄 Navigating to module:', currentModule);
     switch (currentModule) {
       case "dashboard":
         return <DashboardContent />;
@@ -31,8 +29,6 @@ const Dashboard = () => {
         return <TasksModule />;
       case "reports":
         return <ReportsModule />;
-      case "analytics":
-        return <AnalyticsModule />;
       default:
         return <DashboardContent />;
     }

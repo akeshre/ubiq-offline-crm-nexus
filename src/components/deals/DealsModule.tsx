@@ -1,356 +1,147 @@
-import React, { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { dealService, Deal, contactService, Contact } from "@/services/firestoreService";
+
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { useForm } from "react-hook-form";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { toast } from "@/components/ui/use-toast";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
-import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
-import { Timestamp } from 'firebase/firestore';
+import { getDeals, getContacts, Deal, Contact } from "@/utils/dataUtils";
+import { Plus, DollarSign } from "lucide-react";
 
 const DealsModule = () => {
-  const { user } = useAuth();
   const [deals, setDeals] = useState<Deal[]>([]);
-  const [winContacts, setWinContacts] = useState<Contact[]>([]);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [contacts, setContacts] = useState<Contact[]>([]);
 
-  const form = useForm({
-    defaultValues: {
-      dealName: "",
-      contactRef: "",
-      value: 0,
-      status: "Ongoing" as "Ongoing" | "Completed",
-      startDate: "",
-      endDate: ""
-    }
-  });
-
-  const fetchData = async () => {
-    if (!user) return;
-    
-    console.log('💰 Fetching deals and win contacts for user:', user.user_id);
-    try {
-      setLoading(true);
-      const [dealsData, contactsData] = await Promise.all([
-        dealService.getAll(user.user_id),
-        contactService.getWinContacts(user.user_id)
-      ]);
-      setDeals(dealsData);
-      setWinContacts(contactsData);
-    } catch (error) {
-      console.error('❌ Error fetching deals data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const stages = [
+    { name: "Lead", color: "bg-gray-100" },
+    { name: "Qualified", color: "bg-blue-100" },
+    { name: "Proposal Sent", color: "bg-yellow-100" },
+    { name: "Negotiation", color: "bg-orange-100" },
+    { name: "Closed Won", color: "bg-green-100" },
+    { name: "Closed Lost", color: "bg-red-100" }
+  ];
 
   useEffect(() => {
-    fetchData();
-  }, [user]);
+    setDeals(getDeals());
+    setContacts(getContacts());
+  }, []);
 
-  const handleSubmit = async (data: any) => {
-    if (!user) return;
-    
-    console.log('📝 Deal form submission:', data);
-    console.log('🔗 Associated contact:', data.contactRef);
-    
-    try {
-      const dealData = {
-        dealName: data.dealName,
-        contactRef: data.contactRef,
-        value: Number(data.value),
-        status: data.status,
-        startDate: Timestamp.fromDate(new Date(data.startDate)),
-        endDate: Timestamp.fromDate(new Date(data.endDate)),
-        userRef: user.user_id
-      };
-      
-      console.log('🔥 Submitting deal data to Firestore:', dealData);
-      await dealService.create(dealData);
-      console.log('✅ Deal created successfully');
-      
-      // Reset form and close dialog
-      form.reset();
-      setShowAddForm(false);
-      
-      // Refresh deals list
-      await fetchData();
-      
-      toast({
-        title: "Deal created successfully",
-        description: `${data.dealName} has been added to your deals.`,
-      });
-    } catch (error) {
-      console.error('❌ Error creating deal:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create deal. Please try again.",
-        variant: "destructive",
-      });
-    }
+  const getContactName = (contactId: string) => {
+    const contact = contacts.find(c => c.contact_id === contactId);
+    return contact ? contact.company_name : "Unknown";
+  };
+
+  const getDealsByStage = (stageName: string) => {
+    return deals.filter(deal => deal.stage === stageName);
+  };
+
+  const formatCurrency = (amount: number | undefined) => {
+    if (!amount) return "$0";
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0
+    }).format(amount);
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Deals</CardTitle>
-        <CardDescription>Manage your deals and opportunities</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="mb-4">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button onClick={() => setShowAddForm(true)}>Add Deal</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Deal</DialogTitle>
-                <DialogDescription>
-                  Create a new deal to track opportunities.
-                </DialogDescription>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="dealName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Deal Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter deal name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="contactRef"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Contact</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a contact" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {winContacts.map((contact) => (
-                              <SelectItem key={contact.id} value={contact.id || ""}>
-                                {contact.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="value"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Value</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="Enter deal value"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Status</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Ongoing">Ongoing</SelectItem>
-                            <SelectItem value="Completed">Completed</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="startDate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Start Date</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={"outline"}
-                                className={cn(
-                                  "w-[240px] pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value ? (
-                                  format(new Date(field.value), "PPP")
-                                ) : (
-                                  <span>Pick a date</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value ? new Date(field.value) : undefined}
-                              onSelect={(date) => field.onChange(date)}
-                              disabled={(date) =>
-                                date > new Date()
-                              }
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="endDate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>End Date</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={"outline"}
-                                className={cn(
-                                  "w-[240px] pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value ? (
-                                  format(new Date(field.value), "PPP")
-                                ) : (
-                                  <span>Pick a date</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value ? new Date(field.value) : undefined}
-                              onSelect={(date) => field.onChange(date)}
-                              disabled={(date) =>
-                                date < new Date()
-                              }
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button type="submit">Add Deal</Button>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Sales Pipeline</h1>
+          <p className="text-gray-600 mt-2">Track and manage your sales opportunities</p>
         </div>
+        <Button>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Deal
+        </Button>
+      </div>
 
-        {loading ? (
-          <div>Loading deals...</div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Deal Name</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Value</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Start Date</TableHead>
-                <TableHead>End Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {deals.map((deal) => (
-                <TableRow key={deal.id}>
-                  <TableCell>{deal.dealName}</TableCell>
-                  <TableCell>
-                    {
-                      winContacts.find(contact => contact.id === deal.contactRef)?.name || "N/A"
-                    }
-                  </TableCell>
-                  <TableCell>{deal.value}</TableCell>
-                  <TableCell>{deal.status}</TableCell>
-                  <TableCell>
-                    {deal.startDate instanceof Timestamp ? format(deal.startDate.toDate(), "PPP") : "N/A"}
-                  </TableCell>
-                  <TableCell>
-                    {deal.endDate instanceof Timestamp ? format(deal.endDate.toDate(), "PPP") : "N/A"}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
+      {/* Pipeline Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Pipeline Value</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(deals.reduce((sum, deal) => sum + (deal.value || 0), 0))}
+                </p>
+              </div>
+              <DollarSign className="w-8 h-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Active Deals</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {deals.filter(d => !['Closed Won', 'Closed Lost'].includes(d.stage)).length}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Win Rate</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {deals.length > 0 ? 
+                    Math.round((deals.filter(d => d.stage === 'Closed Won').length / deals.length) * 100) : 0
+                  }%
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Kanban Pipeline */}
+      <div className="grid grid-cols-1 lg:grid-cols-6 gap-6">
+        {stages.map((stage) => {
+          const stageDeals = getDealsByStage(stage.name);
+          const stageValue = stageDeals.reduce((sum, deal) => sum + (deal.value || 0), 0);
+          
+          return (
+            <div key={stage.name} className="min-h-96">
+              <div className={`p-4 rounded-lg ${stage.color} mb-4`}>
+                <h3 className="font-semibold text-gray-900">{stage.name}</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  {stageDeals.length} deals • {formatCurrency(stageValue)}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {stageDeals.map((deal) => (
+                  <Card key={deal.deal_id} className="cursor-pointer hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <h4 className="font-medium text-gray-900 mb-2">{deal.deal_name}</h4>
+                      <p className="text-sm text-gray-600 mb-2">{getContactName(deal.contact_id)}</p>
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-semibold text-green-600">
+                          {formatCurrency(deal.value)}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {deal.probability}%
+                        </span>
+                      </div>
+                      {deal.expected_close_date && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          Expected: {new Date(deal.expected_close_date).toLocaleDateString()}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 };
 
