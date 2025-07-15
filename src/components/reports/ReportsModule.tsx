@@ -1,16 +1,20 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { analyticsService, contactService, dealService, type Contact, type Deal } from "@/services/firestoreService";
-import { FileDown, Filter, Calendar } from "lucide-react";
+import { FileDown, Filter, Calendar, BarChart3, PieChart, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart as RechartsPieChart, Cell } from "recharts";
 
 const ReportsModule = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [analytics, setAnalytics] = useState<any>(null);
   const [filteredData, setFilteredData] = useState<{contacts: Contact[], deals: Deal[]}>({contacts: [], deals: []});
   const [filters, setFilters] = useState({
     contactId: "",
@@ -38,14 +42,25 @@ const ReportsModule = () => {
     console.log('📊 Loading report data...');
     try {
       setLoading(true);
-      const [contactsData, dealsData] = await Promise.all([
+      const [contactsData, dealsData, contactsAnalytics, dealsAnalytics] = await Promise.all([
         contactService.getAll(user.user_id),
-        dealService.getAll(user.user_id)
+        dealService.getAll(user.user_id),
+        analyticsService.getContactsAnalytics(user.user_id),
+        analyticsService.getDealsAnalytics(user.user_id)
       ]);
+      
       setContacts(contactsData);
       setDeals(dealsData);
       setFilteredData({ contacts: contactsData, deals: dealsData });
+      
+      const analyticsData = {
+        contacts: contactsAnalytics,
+        deals: dealsAnalytics
+      };
+      
+      setAnalytics(analyticsData);
       console.log('✅ Report data loaded successfully');
+      console.log('📈 Analytics data:', analyticsData);
     } catch (error) {
       console.error('❌ Failed to load report data:', error);
       toast({
@@ -137,14 +152,53 @@ const ReportsModule = () => {
     };
   };
 
+  const getChartData = () => {
+    const metrics = getMetrics();
+    
+    const contactsData = [
+      { name: 'Prospects', value: metrics.prospectContacts, color: '#3B82F6' },
+      { name: 'Wins', value: metrics.winContacts, color: '#10B981' },
+      { name: 'Losses', value: metrics.loseContacts, color: '#EF4444' }
+    ];
+    
+    const dealsData = [
+      { name: 'Ongoing', value: metrics.ongoingDeals, color: '#F59E0B' },
+      { name: 'Completed', value: metrics.completedDeals, color: '#10B981' }
+    ];
+    
+    return { contactsData, dealsData };
+  };
+
   const metrics = getMetrics();
+  const chartData = getChartData();
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="text-center py-12">
+          <p className="text-gray-500">Loading analytics data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!analytics) {
+    return (
+      <div className="p-6">
+        <div className="text-center py-12">
+          <p className="text-gray-500 text-lg">No analytics data available</p>
+          <p className="text-gray-400 text-sm mt-2">Add some contacts and deals to see analytics</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Reports</h1>
-          <p className="text-gray-600 mt-2">Aggregated reports and analytics</p>
+          <h1 className="text-3xl font-bold text-gray-900">Reports & Analytics</h1>
+          <p className="text-gray-600 mt-2">Comprehensive business analytics and insights</p>
         </div>
         <Button onClick={exportToPDF}>
           <FileDown className="w-4 h-4 mr-2" />
@@ -266,6 +320,68 @@ const ReportsModule = () => {
         </Card>
       </div>
 
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Contacts Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <BarChart3 className="w-5 h-5 mr-2" />
+              Contacts by Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer
+              config={{
+                prospects: { label: "Prospects", color: "#3B82F6" },
+                wins: { label: "Wins", color: "#10B981" },
+                losses: { label: "Losses", color: "#EF4444" }
+              }}
+              className="h-[300px]"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData.contactsData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="value" fill="var(--color-prospects)" />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        {/* Deals Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <PieChart className="w-5 h-5 mr-2" />
+              Deals Overview
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer
+              config={{
+                ongoing: { label: "Ongoing", color: "#F59E0B" },
+                completed: { label: "Completed", color: "#10B981" }
+              }}
+              className="h-[300px]"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsPieChart>
+                  <RechartsPieChart data={chartData.dealsData} />
+                  {chartData.dealsData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                </RechartsPieChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Detailed Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Contact Breakdown */}
@@ -324,12 +440,6 @@ const ReportsModule = () => {
           </CardContent>
         </Card>
       </div>
-
-      {loading && (
-        <div className="text-center py-12">
-          <p className="text-gray-500">Loading report data...</p>
-        </div>
-      )}
     </div>
   );
 };

@@ -3,6 +3,8 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
   User as FirebaseUser
@@ -17,6 +19,7 @@ export interface User {
   name: string;
   email: string;
   permissions: string[];
+  photoURL?: string;
 }
 
 export interface CurrentUser {
@@ -26,6 +29,7 @@ export interface CurrentUser {
   name: string;
   email: string;
   permissions: string[];
+  photoURL?: string;
   loginTime: string;
   lastActivity?: string;
 }
@@ -33,6 +37,7 @@ export interface CurrentUser {
 interface AuthContextType {
   user: CurrentUser | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   signup: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   loading: boolean;
@@ -52,6 +57,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (firebaseUser) {
         try {
+          console.log('👤 Firebase user data:', {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            displayName: firebaseUser.displayName,
+            photoURL: firebaseUser.photoURL
+          });
+
           // Get user data from Firestore
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
           
@@ -63,24 +75,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               user_id: firebaseUser.uid,
               username: userData.username || firebaseUser.email?.split('@')[0] || '',
               role: userData.role || 'Developer',
-              name: userData.name,
+              name: userData.name || firebaseUser.displayName || '',
               email: firebaseUser.email || '',
+              photoURL: userData.photoURL || firebaseUser.photoURL || undefined,
               permissions: userData.permissions || ['contacts', 'deals', 'projects', 'tasks'],
               loginTime: new Date().toISOString(),
               lastActivity: new Date().toISOString()
             };
             
             setUser(currentUser);
+            console.log('✅ User authenticated successfully:', currentUser.email);
           } else {
-            console.error('❌ User document not found in Firestore');
-            await signOut(auth);
+            console.log('📝 Creating new user document in Firestore...');
+            // Create user document for Google sign-in users
+            const userData = {
+              uid: firebaseUser.uid,
+              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '',
+              email: firebaseUser.email || '',
+              photoURL: firebaseUser.photoURL || null,
+              username: firebaseUser.email?.split('@')[0] || '',
+              role: 'Developer',
+              permissions: ['contacts', 'deals', 'projects', 'tasks'],
+              createdAt: new Date(),
+              updatedAt: new Date()
+            };
+            
+            await setDoc(doc(db, 'users', firebaseUser.uid), userData);
+            console.log('✅ New user document created:', userData);
+            
+            const currentUser: CurrentUser = {
+              user_id: firebaseUser.uid,
+              username: userData.username,
+              role: userData.role,
+              name: userData.name,
+              email: userData.email,
+              photoURL: userData.photoURL || undefined,
+              permissions: userData.permissions,
+              loginTime: new Date().toISOString(),
+              lastActivity: new Date().toISOString()
+            };
+            
+            setUser(currentUser);
           }
         } catch (error) {
-          console.error('❌ Error fetching user data:', error);
+          console.error('❌ Error handling user authentication:', error);
           await signOut(auth);
         }
       } else {
         setUser(null);
+        console.log('👤 User logged out');
       }
       
       setLoading(false);
@@ -90,14 +133,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    console.log('🔐 Attempting login for:', email);
+    console.log('🔐 Attempting email/password login for:', email);
     
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      console.log('✅ Login successful for:', userCredential.user.email);
+      console.log('✅ Email/password login successful for:', userCredential.user.email);
       return { success: true };
     } catch (error: any) {
-      console.error('❌ Login error:', error.message);
+      console.error('❌ Email/password login error:', error.message);
+      return { success: false, error: error.message };
+    }
+  };
+
+  const loginWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
+    console.log('🔐 Attempting Google Sign-In...');
+    
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.addScope('email');
+      provider.addScope('profile');
+      
+      const result = await signInWithPopup(auth, provider);
+      console.log('✅ Google Sign-In successful for:', result.user.email);
+      console.log('📊 Google user info:', {
+        uid: result.user.uid,
+        email: result.user.email,
+        displayName: result.user.displayName,
+        photoURL: result.user.photoURL
+      });
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error('❌ Google Sign-In error:', error.message);
       return { success: false, error: error.message };
     }
   };
@@ -114,8 +181,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // Create user document in Firestore
       const userData = {
+        uid: firebaseUser.uid,
         name,
         email,
+        photoURL: null,
         username: email.split('@')[0],
         role: 'Developer', // Default role
         permissions: ['contacts', 'deals', 'projects', 'tasks'], // Default permissions
@@ -150,7 +219,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, loading, hasPermission }}>
+    <AuthContext.Provider value={{ user, login, loginWithGoogle, signup, logout, loading, hasPermission }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Contact, contactService } from "@/services/firestoreService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +21,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 import {
   Select,
@@ -33,7 +33,6 @@ import {
 const ContactsModule = () => {
   const { user } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [showAddForm, setShowAddForm] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const form = useForm({
@@ -53,6 +52,7 @@ const ContactsModule = () => {
     try {
       setLoading(true);
       const contactsData = await contactService.getAll(user.user_id);
+      console.log('📊 Contacts data loaded:', contactsData.length, 'contacts');
       setContacts(contactsData);
     } catch (error) {
       console.error('❌ Error fetching contacts:', error);
@@ -79,10 +79,14 @@ const ContactsModule = () => {
       console.log('🔥 Submitting contact data to Firestore:', contactData);
       await contactService.create(contactData);
       console.log('✅ Contact created successfully');
+
+      // If status is Win, log the auto-conversion
+      if (data.status === 'Win') {
+        console.log('🎯 Contact marked as Win - will auto-convert to Active Client and move to Deals');
+      }
       
       // Reset form and close dialog
       form.reset();
-      setShowAddForm(false);
       
       // Refresh contacts list
       await fetchContacts();
@@ -101,13 +105,26 @@ const ContactsModule = () => {
     }
   };
 
+  const getStatusBadge = (status: string) => {
+    const variants = {
+      'Prospect': 'bg-blue-100 text-blue-800 border-blue-200',
+      'Win': 'bg-green-100 text-green-800 border-green-200',
+      'Lose': 'bg-red-100 text-red-800 border-red-200'
+    };
+    
+    return variants[status as keyof typeof variants] || variants.Prospect;
+  };
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold">Contacts</h2>
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Contacts</h1>
+          <p className="text-gray-600 mt-2">Manage your business contacts and leads</p>
+        </div>
         <Dialog>
           <DialogTrigger asChild>
-            <Button>Add Contact</Button>
+            <Button className="bg-blue-600 hover:bg-blue-700">Add Contact</Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
@@ -189,7 +206,7 @@ const ContactsModule = () => {
                     </FormItem>
                   )}
                 />
-                <Button type="submit">Add Contact</Button>
+                <Button type="submit" className="w-full">Add Contact</Button>
               </form>
             </Form>
           </DialogContent>
@@ -197,18 +214,48 @@ const ContactsModule = () => {
       </div>
 
       {loading ? (
-        <p>Loading contacts...</p>
+        <div className="text-center py-12">
+          <p className="text-gray-500">Loading contacts...</p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {contacts.map((contact) => (
-            <div key={contact.id} className="bg-white rounded-md shadow-sm p-4">
-              <h3 className="text-lg font-semibold">{contact.name}</h3>
-              <p className="text-gray-500">{contact.email}</p>
-              <p className="text-gray-500">{contact.phone}</p>
-              <p className="text-gray-500">{contact.company}</p>
-              <p className="text-gray-500">Status: {contact.status}</p>
+            <div key={contact.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex justify-between items-start mb-3">
+                <h3 className="text-lg font-semibold text-gray-900 truncate">{contact.name}</h3>
+                <Badge 
+                  className={`text-xs font-medium px-2 py-1 rounded-full ${getStatusBadge(contact.status)}`}
+                >
+                  {contact.status}
+                </Badge>
+              </div>
+              
+              <div className="space-y-2 text-sm text-gray-600">
+                <p className="truncate">
+                  <span className="font-medium">Email:</span> {contact.email}
+                </p>
+                <p className="truncate">
+                  <span className="font-medium">Phone:</span> {contact.phone}
+                </p>
+                <p className="truncate">
+                  <span className="font-medium">Company:</span> {contact.company}
+                </p>
+              </div>
+              
+              {contact.status === 'Win' && (
+                <div className="mt-3 text-xs text-green-700 bg-green-50 px-2 py-1 rounded">
+                  ✓ Active Client
+                </div>
+              )}
             </div>
           ))}
+          
+          {contacts.length === 0 && (
+            <div className="col-span-full text-center py-12">
+              <p className="text-gray-500 text-lg">No contacts found</p>
+              <p className="text-gray-400 text-sm mt-2">Add your first contact to get started</p>
+            </div>
+          )}
         </div>
       )}
     </div>
