@@ -22,6 +22,7 @@ export interface Contact {
   phone: string;
   company: string;
   status: 'Prospect' | 'Win' | 'Lose';
+  userRef: string; // Reference to the user who created this contact
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -34,6 +35,7 @@ export interface Deal {
   status: 'Ongoing' | 'Completed';
   startDate: Timestamp;
   endDate: Timestamp;
+  userRef: string; // Reference to the user who created this deal
   createdAt: Timestamp;
 }
 
@@ -42,6 +44,7 @@ export interface Project {
   dealRef: string;
   title: string;
   status: 'Active' | 'Completed';
+  userRef: string; // Reference to the user who created this project
   createdAt: Timestamp;
 }
 
@@ -53,6 +56,7 @@ export interface Task {
   description: string;
   dueDate: Timestamp;
   status: 'Pending' | 'In Progress' | 'Done';
+  userRef: string; // Reference to the user who created this task
   createdAt: Timestamp;
 }
 
@@ -81,15 +85,16 @@ export const contactService = {
     }
   },
 
-  async getAll() {
-    console.log('🔍 Fetching all contacts...');
+  async getAll(userRef: string) {
+    console.log('🔍 Fetching all contacts for user:', userRef);
     try {
-      const querySnapshot = await getDocs(collection(db, 'contacts'));
+      const q = query(collection(db, 'contacts'), where('userRef', '==', userRef));
+      const querySnapshot = await getDocs(q);
       const contacts = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Contact[];
-      console.log('✅ Fetched contacts:', contacts.length, 'records');
+      console.log('✅ Fetched contacts:', contacts.length, 'records for user:', userRef);
       console.log('📊 Contacts data:', contacts);
       return contacts;
     } catch (error) {
@@ -98,16 +103,20 @@ export const contactService = {
     }
   },
 
-  async getWinContacts() {
-    console.log('🔍 Fetching Win status contacts...');
+  async getWinContacts(userRef: string) {
+    console.log('🔍 Fetching Win status contacts for user:', userRef);
     try {
-      const q = query(collection(db, 'contacts'), where('status', '==', 'Win'));
+      const q = query(
+        collection(db, 'contacts'), 
+        where('userRef', '==', userRef),
+        where('status', '==', 'Win')
+      );
       const querySnapshot = await getDocs(q);
       const contacts = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Contact[];
-      console.log('✅ Fetched Win contacts:', contacts.length, 'records');
+      console.log('✅ Fetched Win contacts:', contacts.length, 'records for user:', userRef);
       return contacts;
     } catch (error) {
       console.error('❌ Error fetching Win contacts:', error);
@@ -148,20 +157,22 @@ export const dealService = {
       value: 0,
       status: 'Ongoing' as const,
       startDate: Timestamp.now(),
-      endDate: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)) // 30 days from now
+      endDate: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)), // 30 days from now
+      userRef: contactData.userRef
     };
     return await this.create(dealData);
   },
 
-  async getAll() {
-    console.log('🔍 Fetching all deals...');
+  async getAll(userRef: string) {
+    console.log('🔍 Fetching all deals for user:', userRef);
     try {
-      const querySnapshot = await getDocs(collection(db, 'deals'));
+      const q = query(collection(db, 'deals'), where('userRef', '==', userRef));
+      const querySnapshot = await getDocs(q);
       const deals = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Deal[];
-      console.log('✅ Fetched deals:', deals.length, 'records');
+      console.log('✅ Fetched deals:', deals.length, 'records for user:', userRef);
       console.log('📊 Deals data:', deals);
       return deals;
     } catch (error) {
@@ -170,16 +181,20 @@ export const dealService = {
     }
   },
 
-  async getCompletedDeals() {
-    console.log('🔍 Fetching completed deals...');
+  async getCompletedDeals(userRef: string) {
+    console.log('🔍 Fetching completed deals for user:', userRef);
     try {
-      const q = query(collection(db, 'deals'), where('status', '==', 'Completed'));
+      const q = query(
+        collection(db, 'deals'), 
+        where('userRef', '==', userRef),
+        where('status', '==', 'Completed')
+      );
       const querySnapshot = await getDocs(q);
       const deals = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Deal[];
-      console.log('✅ Fetched completed deals:', deals.length, 'records');
+      console.log('✅ Fetched completed deals:', deals.length, 'records for user:', userRef);
       return deals;
     } catch (error) {
       console.error('❌ Error fetching completed deals:', error);
@@ -210,20 +225,22 @@ export const projectService = {
     const projectData = {
       dealRef: dealId,
       title: `Project: ${dealData.dealName}`,
-      status: 'Active' as const
+      status: 'Active' as const,
+      userRef: dealData.userRef
     };
     return await this.create(projectData);
   },
 
-  async getAll() {
-    console.log('🔍 Fetching all projects...');
+  async getAll(userRef: string) {
+    console.log('🔍 Fetching all projects for user:', userRef);
     try {
-      const querySnapshot = await getDocs(collection(db, 'projects'));
+      const q = query(collection(db, 'projects'), where('userRef', '==', userRef));
+      const querySnapshot = await getDocs(q);
       const projects = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Project[];
-      console.log('✅ Fetched projects:', projects.length, 'records');
+      console.log('✅ Fetched projects:', projects.length, 'records for user:', userRef);
       console.log('📊 Projects data:', projects);
       
       const activeCounts = projects.filter(p => p.status === 'Active').length;
@@ -256,15 +273,16 @@ export const taskService = {
     }
   },
 
-  async getAll() {
-    console.log('🔍 Fetching all tasks...');
+  async getAll(userRef: string) {
+    console.log('🔍 Fetching all tasks for user:', userRef);
     try {
-      const querySnapshot = await getDocs(collection(db, 'tasks'));
+      const q = query(collection(db, 'tasks'), where('userRef', '==', userRef));
+      const querySnapshot = await getDocs(q);
       const tasks = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Task[];
-      console.log('✅ Fetched tasks:', tasks.length, 'records');
+      console.log('✅ Fetched tasks:', tasks.length, 'records for user:', userRef);
       console.log('📊 Tasks data:', tasks);
       return tasks;
     } catch (error) {
@@ -287,10 +305,10 @@ export const taskService = {
 
 // Analytics Services
 export const analyticsService = {
-  async getContactsAnalytics() {
-    console.log('📊 Fetching contacts analytics...');
+  async getContactsAnalytics(userRef: string) {
+    console.log('📊 Fetching contacts analytics for user:', userRef);
     try {
-      const contacts = await contactService.getAll();
+      const contacts = await contactService.getAll(userRef);
       const analytics = {
         prospect: contacts.filter(c => c.status === 'Prospect').length,
         win: contacts.filter(c => c.status === 'Win').length,
@@ -305,10 +323,10 @@ export const analyticsService = {
     }
   },
 
-  async getDealsAnalytics() {
-    console.log('📊 Fetching deals analytics...');
+  async getDealsAnalytics(userRef: string) {
+    console.log('📊 Fetching deals analytics for user:', userRef);
     try {
-      const deals = await dealService.getAll();
+      const deals = await dealService.getAll(userRef);
       const analytics = {
         ongoing: deals.filter(d => d.status === 'Ongoing').length,
         completed: deals.filter(d => d.status === 'Completed').length,
@@ -323,10 +341,10 @@ export const analyticsService = {
     }
   },
 
-  async getProjectsAnalytics() {
-    console.log('📊 Fetching projects analytics...');
+  async getProjectsAnalytics(userRef: string) {
+    console.log('📊 Fetching projects analytics for user:', userRef);
     try {
-      const projects = await projectService.getAll();
+      const projects = await projectService.getAll(userRef);
       const analytics = {
         active: projects.filter(p => p.status === 'Active').length,
         completed: projects.filter(p => p.status === 'Completed').length,
@@ -340,10 +358,10 @@ export const analyticsService = {
     }
   },
 
-  async getTasksAnalytics() {
-    console.log('📊 Fetching tasks analytics...');
+  async getTasksAnalytics(userRef: string) {
+    console.log('📊 Fetching tasks analytics for user:', userRef);
     try {
-      const tasks = await taskService.getAll();
+      const tasks = await taskService.getAll(userRef);
       const analytics = {
         pending: tasks.filter(t => t.status === 'Pending').length,
         inProgress: tasks.filter(t => t.status === 'In Progress').length,
