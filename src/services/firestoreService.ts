@@ -20,6 +20,11 @@ export interface Contact {
   email: string;
   phone: string;
   company: string;
+  designation?: string;
+  industry?: string;
+  source?: string;
+  assignedTo?: string;
+  notes?: string;
   status: 'Prospect' | 'Win' | 'Lose';
   userRef: string; // Reference to the user who created this contact
   createdAt: Timestamp;

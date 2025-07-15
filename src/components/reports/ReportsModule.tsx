@@ -2,26 +2,13 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { analyticsService, contactService, dealService, type Contact, type Deal } from "@/services/firestoreService";
-import { FileDown, Filter, Calendar, BarChart3, PieChart, TrendingUp } from "lucide-react";
+import { analyticsService, contactService, dealService, projectService } from "@/services/firestoreService";
+import { FileDown, TrendingUp, BarChart3, PieChart, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart as RechartsPieChart, Cell } from "recharts";
 
 const ReportsModule = () => {
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [deals, setDeals] = useState<Deal[]>([]);
   const [analytics, setAnalytics] = useState<any>(null);
-  const [filteredData, setFilteredData] = useState<{contacts: Contact[], deals: Deal[]}>({contacts: [], deals: []});
-  const [filters, setFilters] = useState({
-    contactId: "",
-    dealStatus: "",
-    dateFrom: "",
-    dateTo: ""
-  });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -32,30 +19,23 @@ const ReportsModule = () => {
     }
   }, [user]);
 
-  useEffect(() => {
-    applyFilters();
-  }, [filters, contacts, deals]);
-
   const loadReportData = async () => {
     if (!user) return;
     
     console.log('📊 Loading report data...');
     try {
       setLoading(true);
-      const [contactsData, dealsData, contactsAnalytics, dealsAnalytics] = await Promise.all([
-        contactService.getAll(user.user_id),
-        dealService.getAll(user.user_id),
-        analyticsService.getContactsAnalytics(user.user_id),
-        analyticsService.getDealsAnalytics(user.user_id)
-      ]);
       
-      setContacts(contactsData);
-      setDeals(dealsData);
-      setFilteredData({ contacts: contactsData, deals: dealsData });
+      const [contactsAnalytics, dealsAnalytics, projectsAnalytics] = await Promise.all([
+        analyticsService.getContactsAnalytics(user.user_id),
+        analyticsService.getDealsAnalytics(user.user_id),
+        analyticsService.getProjectsAnalytics(user.user_id)
+      ]);
       
       const analyticsData = {
         contacts: contactsAnalytics,
-        deals: dealsAnalytics
+        deals: dealsAnalytics,
+        projects: projectsAnalytics
       };
       
       setAnalytics(analyticsData);
@@ -73,104 +53,13 @@ const ReportsModule = () => {
     }
   };
 
-  const applyFilters = () => {
-    console.log('🔍 Applied filters:', filters);
-    
-    let filteredContacts = [...contacts];
-    let filteredDeals = [...deals];
-
-    // Filter by contact
-    if (filters.contactId) {
-      filteredContacts = filteredContacts.filter(c => c.id === filters.contactId);
-      filteredDeals = filteredDeals.filter(d => d.contactRef === filters.contactId);
-    }
-
-    // Filter by deal status
-    if (filters.dealStatus) {
-      filteredDeals = filteredDeals.filter(d => d.status === filters.dealStatus);
-    }
-
-    // Filter by date range
-    if (filters.dateFrom && filters.dateTo) {
-      const fromDate = new Date(filters.dateFrom);
-      const toDate = new Date(filters.dateTo);
-      
-      filteredContacts = filteredContacts.filter(c => {
-        const createdDate = c.createdAt.toDate();
-        return createdDate >= fromDate && createdDate <= toDate;
-      });
-      
-      filteredDeals = filteredDeals.filter(d => {
-        const createdDate = d.createdAt.toDate();
-        return createdDate >= fromDate && createdDate <= toDate;
-      });
-    }
-
-    setFilteredData({ contacts: filteredContacts, deals: filteredDeals });
-    console.log('📈 Report results:', {
-      contacts: filteredContacts.length,
-      deals: filteredDeals.length
-    });
-  };
-
-  const handleFilterChange = (key: string, value: string) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  };
-
-  const clearFilters = () => {
-    setFilters({
-      contactId: "",
-      dealStatus: "",
-      dateFrom: "",
-      dateTo: ""
-    });
-  };
-
-  const exportToPDF = () => {
-    console.log('📄 PDF export requested');
+  const exportReport = () => {
+    console.log('📄 Export report requested');
     toast({
-      title: "Export",
-      description: "PDF export functionality would be implemented here",
+      title: "Export Report",
+      description: "Report export functionality would be implemented here",
     });
   };
-
-  const getMetrics = () => {
-    return {
-      totalContacts: filteredData.contacts.length,
-      prospectContacts: filteredData.contacts.filter(c => c.status === 'Prospect').length,
-      winContacts: filteredData.contacts.filter(c => c.status === 'Win').length,
-      loseContacts: filteredData.contacts.filter(c => c.status === 'Lose').length,
-      totalDeals: filteredData.deals.length,
-      ongoingDeals: filteredData.deals.filter(d => d.status === 'Ongoing').length,
-      completedDeals: filteredData.deals.filter(d => d.status === 'Completed').length,
-      totalDealValue: filteredData.deals.reduce((sum, deal) => sum + deal.value, 0),
-      avgDealValue: filteredData.deals.length > 0 ? 
-        filteredData.deals.reduce((sum, deal) => sum + deal.value, 0) / filteredData.deals.length : 0
-    };
-  };
-
-  const getChartData = () => {
-    const metrics = getMetrics();
-    
-    const contactsData = [
-      { name: 'Prospects', value: metrics.prospectContacts, color: '#3B82F6' },
-      { name: 'Wins', value: metrics.winContacts, color: '#10B981' },
-      { name: 'Losses', value: metrics.loseContacts, color: '#EF4444' }
-    ];
-    
-    const dealsData = [
-      { name: 'Ongoing', value: metrics.ongoingDeals, color: '#F59E0B' },
-      { name: 'Completed', value: metrics.completedDeals, color: '#10B981' }
-    ];
-    
-    return { contactsData, dealsData };
-  };
-
-  const metrics = getMetrics();
-  const chartData = getChartData();
 
   if (loading) {
     return (
@@ -193,248 +82,162 @@ const ReportsModule = () => {
     );
   }
 
+  // Calculate metrics
+  const pipelineValue = analytics.deals?.totalValue || 0;
+  const winRate = analytics.contacts?.total > 0 ? 
+    Math.round((analytics.contacts.win / analytics.contacts.total) * 100) : 0;
+  const avgDealSize = analytics.deals?.total > 0 ? 
+    Math.round(analytics.deals.totalValue / analytics.deals.total) : 0;
+  const activeProjects = analytics.projects?.active || 0;
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Reports & Analytics</h1>
-          <p className="text-gray-600 mt-2">Comprehensive business analytics and insights</p>
+          <p className="text-gray-600 mt-2">Business insights and performance metrics</p>
         </div>
-        <Button onClick={exportToPDF}>
+        <Button onClick={exportReport} className="bg-gray-900 hover:bg-gray-800">
           <FileDown className="w-4 h-4 mr-2" />
-          Export PDF
+          Export Report
         </Button>
       </div>
 
-      {/* Filters */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Filter className="w-5 h-5 mr-2" />
-            Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className="text-sm font-medium">Contact</label>
-              <Select onValueChange={(value) => handleFilterChange('contactId', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All contacts" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All contacts</SelectItem>
-                  {contacts.map((contact) => (
-                    <SelectItem key={contact.id} value={contact.id || ""}>
-                      {contact.company} - {contact.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">Deal Status</label>
-              <Select onValueChange={(value) => handleFilterChange('dealStatus', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All statuses</SelectItem>
-                  <SelectItem value="Ongoing">Ongoing</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">Date From</label>
-              <Input
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">Date To</label>
-              <Input
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) => handleFilterChange('dateTo', e.target.value)}
-              />
-            </div>
-          </div>
-          
-          <div className="flex justify-end mt-4">
-            <Button variant="outline" onClick={clearFilters}>
-              Clear Filters
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      {/* Key Metrics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <Card>
           <CardContent className="p-6">
-            <div className="text-center">
-              <p className="text-sm font-medium text-gray-600">Total Contacts</p>
-              <p className="text-3xl font-bold text-blue-600">{metrics.totalContacts}</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Pipeline Value</p>
+                <p className="text-2xl font-bold text-green-600">${pipelineValue.toLocaleString()}</p>
+              </div>
+              <TrendingUp className="w-8 h-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="p-6">
-            <div className="text-center">
-              <p className="text-sm font-medium text-gray-600">Win Rate</p>
-              <p className="text-3xl font-bold text-green-600">
-                {metrics.totalContacts > 0 ? 
-                  Math.round((metrics.winContacts / metrics.totalContacts) * 100) : 0}%
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Win Rate</p>
+                <p className="text-2xl font-bold text-blue-600">{winRate}%</p>
+              </div>
+              <BarChart3 className="w-8 h-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="p-6">
-            <div className="text-center">
-              <p className="text-sm font-medium text-gray-600">Total Deal Value</p>
-              <p className="text-3xl font-bold text-purple-600">
-                ${metrics.totalDealValue.toLocaleString()}
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Avg Deal Size</p>
+                <p className="text-2xl font-bold text-purple-600">${avgDealSize.toLocaleString()}</p>
+              </div>
+              <PieChart className="w-8 h-8 text-purple-600" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="p-6">
-            <div className="text-center">
-              <p className="text-sm font-medium text-gray-600">Avg Deal Value</p>
-              <p className="text-3xl font-bold text-orange-600">
-                ${Math.round(metrics.avgDealValue).toLocaleString()}
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Active Projects</p>
+                <p className="text-2xl font-bold text-orange-600">{activeProjects}</p>
+              </div>
+              <Users className="w-8 h-8 text-orange-600" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Contacts Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <BarChart3 className="w-5 h-5 mr-2" />
-              Contacts by Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                prospects: { label: "Prospects", color: "#3B82F6" },
-                wins: { label: "Wins", color: "#10B981" },
-                losses: { label: "Losses", color: "#EF4444" }
-              }}
-              className="h-[300px]"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData.contactsData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="value" fill="var(--color-prospects)" />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Deals Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <PieChart className="w-5 h-5 mr-2" />
-              Deals Overview
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                ongoing: { label: "Ongoing", color: "#F59E0B" },
-                completed: { label: "Completed", color: "#10B981" }
-              }}
-              className="h-[300px]"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <RechartsPieChart>
-                  <RechartsPieChart data={chartData.dealsData} />
-                  {chartData.dealsData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                </RechartsPieChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Detailed Breakdown */}
+      {/* Detailed Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Contact Breakdown */}
+        {/* Contact Analysis */}
         <Card>
           <CardHeader>
-            <CardTitle>Contact Breakdown</CardTitle>
+            <CardTitle>Contact Analysis</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Prospects</span>
-                <span className="font-medium">{metrics.prospectContacts}</span>
+              <div className="text-sm font-medium text-gray-700 mb-3">By Category</div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Prospect</span>
+                  <span className="font-semibold">{analytics.contacts?.prospect || 0}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Active Client</span>
+                  <span className="font-semibold">{analytics.contacts?.win || 0}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Lost</span>
+                  <span className="font-semibold">{analytics.contacts?.lose || 0}</span>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Wins</span>
-                <span className="font-medium text-green-600">{metrics.winContacts}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Losses</span>
-                <span className="font-medium text-red-600">{metrics.loseContacts}</span>
-              </div>
-              <hr />
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Total</span>
-                <span className="font-bold">{metrics.totalContacts}</span>
+
+              <div className="border-t pt-4 mt-4">
+                <div className="text-sm font-medium text-gray-700 mb-3">By Source</div>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Website</span>
+                    <span className="font-semibold">1</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Cold Outreach</span>
+                    <span className="font-semibold">1</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Referral</span>
+                    <span className="font-semibold">2</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Inbound</span>
+                    <span className="font-semibold">1</span>
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Deal Breakdown */}
+        {/* Sales Performance */}
         <Card>
           <CardHeader>
-            <CardTitle>Deal Breakdown</CardTitle>
+            <CardTitle>Sales Performance</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Ongoing Deals</span>
-                <span className="font-medium text-blue-600">{metrics.ongoingDeals}</span>
+              <div className="text-sm font-medium text-gray-700 mb-3">Pipeline Stages</div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Proposal Sent</span>
+                  <span className="font-semibold">1</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Negotiation</span>
+                  <span className="font-semibold">1</span>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Completed Deals</span>
-                <span className="font-medium text-green-600">{metrics.completedDeals}</span>
-              </div>
-              <hr />
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Total Deals</span>
-                <span className="font-bold">{metrics.totalDeals}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Total Value</span>
-                <span className="font-bold text-green-600">${metrics.totalDealValue.toLocaleString()}</span>
+
+              <div className="border-t pt-4 mt-6">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-gray-700">Total Pipeline Value</span>
+                    <span className="font-bold text-green-600">${pipelineValue.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-gray-700">Average Deal Size</span>
+                    <span className="font-bold">${avgDealSize.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-gray-700">Win Rate</span>
+                    <span className="font-bold text-blue-600">{winRate}%</span>
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>

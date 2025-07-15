@@ -44,6 +44,11 @@ const ContactsModule = () => {
       email: "",
       phone: "",
       company: "",
+      designation: "",
+      industry: "",
+      source: "",
+      assignedTo: "",
+      notes: "",
       status: "Prospect" as "Prospect" | "Win" | "Lose"
     }
   });
@@ -188,7 +193,7 @@ const ContactsModule = () => {
             <DialogTrigger asChild>
               <Button className="bg-blue-600 hover:bg-blue-700">Add Contact</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[425px] max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add New Contact</DialogTitle>
               </DialogHeader>
@@ -202,6 +207,19 @@ const ContactsModule = () => {
                         <FormLabel>Name</FormLabel>
                         <FormControl>
                           <Input placeholder="Contact name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="designation"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Designation</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Job title" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -240,7 +258,78 @@ const ContactsModule = () => {
                       <FormItem>
                         <FormLabel>Company</FormLabel>
                         <FormControl>
-                          <Input placeholder="Contact company" {...field} />
+                          <Input placeholder="Company name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="industry"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Industry</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Industry" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="source"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Source</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select source" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Website">Website</SelectItem>
+                            <SelectItem value="Cold Outreach">Cold Outreach</SelectItem>
+                            <SelectItem value="Referral">Referral</SelectItem>
+                            <SelectItem value="Inbound">Inbound</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="assignedTo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Assigned To</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select assignee" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Founder">Founder</SelectItem>
+                            <SelectItem value="CEO">CEO</SelectItem>
+                            <SelectItem value="Sales Manager">Sales Manager</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Notes</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Additional notes" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
