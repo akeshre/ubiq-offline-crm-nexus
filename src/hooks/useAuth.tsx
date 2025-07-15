@@ -1,14 +1,25 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
+  onAuthStateChanged,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 
 export interface User {
   user_id: string;
   username: string;
-  password: string;
   role: string;
   name: string;
   email: string;
   permissions: string[];
+  photoURL?: string;
 }
 
 export interface CurrentUser {
@@ -18,71 +29,17 @@ export interface CurrentUser {
   name: string;
   email: string;
   permissions: string[];
+  photoURL?: string;
   loginTime: string;
   lastActivity?: string;
 }
 
-const USERS: User[] = [
-  {
-    user_id: "founder_001",
-    username: "founder",
-    password: "founder123",
-    role: "Founder",
-    name: "Founder Name",
-    email: "founder@ubiq.com",
-    permissions: ["all"]
-  },
-  {
-    user_id: "ceo_001", 
-    username: "ceo",
-    password: "ceo123",
-    role: "CEO",
-    name: "CEO Name",
-    email: "ceo@ubiq.com",
-    permissions: ["all"]
-  },
-  {
-    user_id: "cto_001",
-    username: "cto1",
-    password: "cto123",
-    role: "CTO",
-    name: "CTO One",
-    email: "cto1@ubiq.com",
-    permissions: ["projects", "tasks", "contacts", "reports"]
-  },
-  {
-    user_id: "cto_002",
-    username: "cto2", 
-    password: "cto123",
-    role: "CTO",
-    name: "CTO Two",
-    email: "cto2@ubiq.com",
-    permissions: ["projects", "tasks", "contacts", "reports"]
-  },
-  {
-    user_id: "dev_001",
-    username: "dev1",
-    password: "dev123",
-    role: "Developer",
-    name: "Developer One", 
-    email: "dev1@ubiq.com",
-    permissions: ["tasks", "projects", "contacts"]
-  },
-  {
-    user_id: "dev_002",
-    username: "dev2",
-    password: "dev123", 
-    role: "Developer",
-    name: "Developer Two",
-    email: "dev2@ubiq.com",
-    permissions: ["tasks", "projects", "contacts"]
-  }
-];
-
 interface AuthContextType {
   user: CurrentUser | null;
-  login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithGoogle: () => Promise<{ success: boolean; error?: string }>;
+  signup: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
   loading: boolean;
   hasPermission: (permission: string) => boolean;
 }
@@ -92,101 +49,167 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [failedAttempts, setFailedAttempts] = useState<Record<string, number>>({});
-  const [lockedAccounts, setLockedAccounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    // Check for existing session
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
-      try {
-        const userData = JSON.parse(storedUser);
-        // Check if session is still valid (4 hours)
-        const loginTime = new Date(userData.loginTime);
-        const now = new Date();
-        const hoursDiff = (now.getTime() - loginTime.getTime()) / (1000 * 60 * 60);
-        
-        if (hoursDiff < 4) {
-          setUser(userData);
-          // Update last activity
-          const updatedUser = { ...userData, lastActivity: now.toISOString() };
-          localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-          setUser(updatedUser);
-        } else {
-          // Session expired
-          localStorage.removeItem('currentUser');
+    console.log('🔐 Setting up Firebase Auth listener...');
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      console.log('🔐 Auth state changed:', firebaseUser ? 'User logged in' : 'User logged out');
+      
+      if (firebaseUser) {
+        try {
+          console.log('👤 Firebase user data:', {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            displayName: firebaseUser.displayName,
+            photoURL: firebaseUser.photoURL
+          });
+
+          // Get user data from Firestore
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            console.log('👤 User data fetched from Firestore:', userData);
+            
+            const currentUser: CurrentUser = {
+              user_id: firebaseUser.uid,
+              username: userData.username || firebaseUser.email?.split('@')[0] || '',
+              role: userData.role || 'Developer',
+              name: userData.name || firebaseUser.displayName || '',
+              email: firebaseUser.email || '',
+              photoURL: userData.photoURL || firebaseUser.photoURL || undefined,
+              permissions: userData.permissions || ['contacts', 'deals', 'projects', 'tasks'],
+              loginTime: new Date().toISOString(),
+              lastActivity: new Date().toISOString()
+            };
+            
+            setUser(currentUser);
+            console.log('✅ User authenticated successfully:', currentUser.email);
+          } else {
+            console.log('📝 Creating new user document in Firestore...');
+            // Create user document for Google sign-in users
+            const userData = {
+              uid: firebaseUser.uid,
+              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '',
+              email: firebaseUser.email || '',
+              photoURL: firebaseUser.photoURL || null,
+              username: firebaseUser.email?.split('@')[0] || '',
+              role: 'Developer',
+              permissions: ['contacts', 'deals', 'projects', 'tasks'],
+              createdAt: new Date(),
+              updatedAt: new Date()
+            };
+            
+            await setDoc(doc(db, 'users', firebaseUser.uid), userData);
+            console.log('✅ New user document created:', userData);
+            
+            const currentUser: CurrentUser = {
+              user_id: firebaseUser.uid,
+              username: userData.username,
+              role: userData.role,
+              name: userData.name,
+              email: userData.email,
+              photoURL: userData.photoURL || undefined,
+              permissions: userData.permissions,
+              loginTime: new Date().toISOString(),
+              lastActivity: new Date().toISOString()
+            };
+            
+            setUser(currentUser);
+          }
+        } catch (error) {
+          console.error('❌ Error handling user authentication:', error);
+          await signOut(auth);
         }
-      } catch (error) {
-        console.error('Error parsing stored user:', error);
-        localStorage.removeItem('currentUser');
+      } else {
+        setUser(null);
+        console.log('👤 User logged out');
       }
-    }
-    setLoading(false);
+      
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  // Auto-logout after inactivity
-  useEffect(() => {
-    if (!user) return;
-
-    const checkActivity = () => {
-      const lastActivity = user.lastActivity ? new Date(user.lastActivity) : new Date(user.loginTime);
-      const now = new Date();
-      const hoursDiff = (now.getTime() - lastActivity.getTime()) / (1000 * 60 * 60);
-      
-      if (hoursDiff >= 4) {
-        logout();
-      }
-    };
-
-    const interval = setInterval(checkActivity, 60000); // Check every minute
-    return () => clearInterval(interval);
-  }, [user]);
-
-  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    // Check if account is locked
-    const lockTime = lockedAccounts[username];
-    if (lockTime && Date.now() - lockTime < 5 * 60 * 1000) { // 5 minutes
-      return { success: false, error: "Account locked. Try again in 5 minutes." };
-    }
-
-    const foundUser = USERS.find(u => u.username === username && u.password === password);
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    console.log('🔐 Attempting email/password login for:', email);
     
-    if (foundUser) {
-      // Reset failed attempts on successful login
-      setFailedAttempts(prev => ({ ...prev, [username]: 0 }));
-      setLockedAccounts(prev => ({ ...prev, [username]: 0 }));
-      
-      const currentUser: CurrentUser = {
-        user_id: foundUser.user_id,
-        username: foundUser.username,
-        role: foundUser.role,
-        name: foundUser.name,
-        email: foundUser.email,
-        permissions: foundUser.permissions,
-        loginTime: new Date().toISOString(),
-        lastActivity: new Date().toISOString()
-      };
-      
-      localStorage.setItem('currentUser', JSON.stringify(currentUser));
-      setUser(currentUser);
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      console.log('✅ Email/password login successful for:', userCredential.user.email);
       return { success: true };
-    } else {
-      // Track failed attempts
-      const attempts = (failedAttempts[username] || 0) + 1;
-      setFailedAttempts(prev => ({ ...prev, [username]: attempts }));
-      
-      if (attempts >= 5) {
-        setLockedAccounts(prev => ({ ...prev, [username]: Date.now() }));
-        return { success: false, error: "Account locked due to too many failed attempts. Try again in 5 minutes." };
-      }
-      
-      return { success: false, error: "Invalid username or password" };
+    } catch (error: any) {
+      console.error('❌ Email/password login error:', error.message);
+      return { success: false, error: error.message };
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('currentUser');
-    setUser(null);
+  const loginWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
+    console.log('🔐 Attempting Google Sign-In...');
+    
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.addScope('email');
+      provider.addScope('profile');
+      
+      const result = await signInWithPopup(auth, provider);
+      console.log('✅ Google Sign-In successful for:', result.user.email);
+      console.log('📊 Google user info:', {
+        uid: result.user.uid,
+        email: result.user.email,
+        displayName: result.user.displayName,
+        photoURL: result.user.photoURL
+      });
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error('❌ Google Sign-In error:', error.message);
+      return { success: false, error: error.message };
+    }
+  };
+
+  const signup = async (email: string, password: string, name: string): Promise<{ success: boolean; error?: string }> => {
+    console.log('🔐 Attempting signup for:', email, 'with name:', name);
+    
+    try {
+      // Create Firebase Auth user
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+      
+      console.log('✅ Firebase Auth user created:', firebaseUser.uid);
+      
+      // Create user document in Firestore
+      const userData = {
+        uid: firebaseUser.uid,
+        name,
+        email,
+        photoURL: null,
+        username: email.split('@')[0],
+        role: 'Developer', // Default role
+        permissions: ['contacts', 'deals', 'projects', 'tasks'], // Default permissions
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      await setDoc(doc(db, 'users', firebaseUser.uid), userData);
+      console.log('✅ User document created in Firestore:', userData);
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error('❌ Signup error:', error.message);
+      return { success: false, error: error.message };
+    }
+  };
+
+  const logout = async () => {
+    console.log('🔐 Logging out user...');
+    try {
+      await signOut(auth);
+      console.log('✅ Logout successful');
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+    }
   };
 
   const hasPermission = (permission: string): boolean => {
@@ -195,30 +218,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return user.permissions.includes(permission);
   };
 
-  // Update activity on user interactions
-  useEffect(() => {
-    if (!user) return;
-
-    const updateActivity = () => {
-      const updatedUser = { ...user, lastActivity: new Date().toISOString() };
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-      setUser(updatedUser);
-    };
-
-    // Update activity on mouse movement, clicks, keyboard events
-    document.addEventListener('mousemove', updateActivity);
-    document.addEventListener('click', updateActivity);
-    document.addEventListener('keypress', updateActivity);
-
-    return () => {
-      document.removeEventListener('mousemove', updateActivity);
-      document.removeEventListener('click', updateActivity);
-      document.removeEventListener('keypress', updateActivity);
-    };
-  }, [user]);
-
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, hasPermission }}>
+    <AuthContext.Provider value={{ user, login, loginWithGoogle, signup, logout, loading, hasPermission }}>
       {children}
     </AuthContext.Provider>
   );
