@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { analyticsService, contactService, dealService, type Contact, type Deal } from "@/services/firestoreService";
 import { FileDown, Filter, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 const ReportsModule = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -20,22 +20,27 @@ const ReportsModule = () => {
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
-    loadReportData();
-  }, []);
+    if (user) {
+      loadReportData();
+    }
+  }, [user]);
 
   useEffect(() => {
     applyFilters();
   }, [filters, contacts, deals]);
 
   const loadReportData = async () => {
+    if (!user) return;
+    
     console.log('📊 Loading report data...');
     try {
       setLoading(true);
       const [contactsData, dealsData] = await Promise.all([
-        contactService.getAll(),
-        dealService.getAll()
+        contactService.getAll(user.user_id),
+        dealService.getAll(user.user_id)
       ]);
       setContacts(contactsData);
       setDeals(dealsData);

@@ -1,10 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { analyticsService } from "@/services/firestoreService";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from "recharts";
 import { TrendingUp, Users, DollarSign, CheckSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 const AnalyticsModule = () => {
   const [contactsData, setContactsData] = useState<any>(null);
@@ -13,21 +13,26 @@ const AnalyticsModule = () => {
   const [tasksData, setTasksData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
-    loadAnalyticsData();
-  }, []);
+    if (user) {
+      loadAnalyticsData();
+    }
+  }, [user]);
 
   const loadAnalyticsData = async () => {
+    if (!user) return;
+    
     console.log('📊 Loading analytics data...');
     try {
       setLoading(true);
       
       const [contacts, deals, projects, tasks] = await Promise.all([
-        analyticsService.getContactsAnalytics(),
-        analyticsService.getDealsAnalytics(),
-        analyticsService.getProjectsAnalytics(),
-        analyticsService.getTasksAnalytics()
+        analyticsService.getContactsAnalytics(user.user_id),
+        analyticsService.getDealsAnalytics(user.user_id),
+        analyticsService.getProjectsAnalytics(user.user_id),
+        analyticsService.getTasksAnalytics(user.user_id)
       ]);
 
       setContactsData(contacts);

@@ -1,27 +1,32 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { projectService, dealService, type Project, type Deal } from "@/services/firestoreService";
 import { Plus, Calendar, Users, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 const ProjectsModule = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
-    loadProjects();
-    loadDeals();
-  }, []);
+    if (user) {
+      loadProjects();
+      loadDeals();
+    }
+  }, [user]);
 
   const loadProjects = async () => {
+    if (!user) return;
+    
     console.log('🔄 Loading projects in ProjectsModule...');
     try {
       setLoading(true);
-      const fetchedProjects = await projectService.getAll();
+      const fetchedProjects = await projectService.getAll(user.user_id);
       console.log('🔗 Deal linkage for projects:', fetchedProjects.map(p => ({ id: p.id, dealRef: p.dealRef })));
       setProjects(fetchedProjects);
     } catch (error) {
@@ -37,8 +42,10 @@ const ProjectsModule = () => {
   };
 
   const loadDeals = async () => {
+    if (!user) return;
+    
     try {
-      const fetchedDeals = await dealService.getAll();
+      const fetchedDeals = await dealService.getAll(user.user_id);
       setDeals(fetchedDeals);
     } catch (error) {
       console.error('❌ Failed to load deals for projects:', error);

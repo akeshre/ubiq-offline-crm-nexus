@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,7 @@ import { taskService, projectService, dealService, type Task, type Project, type
 import { Plus, Clock, CheckSquare, AlertCircle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Timestamp } from "firebase/firestore";
 
 const TasksModule = () => {
@@ -20,29 +20,34 @@ const TasksModule = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const form = useForm({
     defaultValues: {
       taskTitle: "",
       description: "",
       dueDate: "",
-      status: "Pending" as const,
+      status: "Pending" as "Pending" | "In Progress" | "Done",
       projectRef: "",
       dealRef: ""
     }
   });
 
   useEffect(() => {
-    loadTasks();
-    loadProjects();
-    loadDeals();
-  }, []);
+    if (user) {
+      loadTasks();
+      loadProjects();
+      loadDeals();
+    }
+  }, [user]);
 
   const loadTasks = async () => {
+    if (!user) return;
+    
     console.log('🔄 Loading tasks in TasksModule...');
     try {
       setLoading(true);
-      const fetchedTasks = await taskService.getAll();
+      const fetchedTasks = await taskService.getAll(user.user_id);
       console.log('🔗 Linked project/deal for tasks:', fetchedTasks.map(t => ({ 
         id: t.id, 
         projectRef: t.projectRef, 
@@ -62,8 +67,10 @@ const TasksModule = () => {
   };
 
   const loadProjects = async () => {
+    if (!user) return;
+    
     try {
-      const fetchedProjects = await projectService.getAll();
+      const fetchedProjects = await projectService.getAll(user.user_id);
       setProjects(fetchedProjects);
     } catch (error) {
       console.error('❌ Failed to load projects for tasks:', error);
@@ -71,8 +78,10 @@ const TasksModule = () => {
   };
 
   const loadDeals = async () => {
+    if (!user) return;
+    
     try {
-      const fetchedDeals = await dealService.getAll();
+      const fetchedDeals = await dealService.getAll(user.user_id);
       setDeals(fetchedDeals);
     } catch (error) {
       console.error('❌ Failed to load deals for tasks:', error);
@@ -112,6 +121,8 @@ const TasksModule = () => {
   };
 
   const onSubmit = async (data: any) => {
+    if (!user) return;
+    
     console.log('📝 Task data input:', data);
     console.log('🔗 Linked project/deal:', data.projectRef || data.dealRef);
     
@@ -123,6 +134,7 @@ const TasksModule = () => {
         description: data.description,
         dueDate: Timestamp.fromDate(new Date(data.dueDate)),
         status: data.status,
+        userRef: user.user_id,
         ...(data.projectRef && { projectRef: data.projectRef }),
         ...(data.dealRef && { dealRef: data.dealRef })
       };
