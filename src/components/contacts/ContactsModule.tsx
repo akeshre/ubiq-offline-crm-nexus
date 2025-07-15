@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +24,7 @@ const ContactsModule = () => {
       email: "",
       phone: "",
       company: "",
-      status: "Prospect" as const
+      status: "Prospect" as "Prospect" | "Win" | "Lose"
     }
   });
 

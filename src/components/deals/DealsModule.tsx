@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,7 +23,7 @@ const DealsModule = () => {
       dealName: "",
       contactRef: "",
       value: 0,
-      status: "Ongoing" as const,
+      status: "Ongoing" as "Ongoing" | "Completed",
       startDate: "",
       endDate: ""
     }
