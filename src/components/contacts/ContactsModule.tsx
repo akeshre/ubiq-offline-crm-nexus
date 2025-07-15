@@ -1,10 +1,9 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Contact, contactService } from "@/services/firestoreService";
+import { Contact, contactService, dealService, projectService } from "@/services/firestoreService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +20,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast";
 import {
   Select,
   SelectContent,
@@ -29,6 +28,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import ContactCard from "./ContactCard";
+import ExcelImport from "./ExcelImport";
+import { Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 const ContactsModule = () => {
   const { user } = useAuth();
@@ -68,7 +71,7 @@ const ContactsModule = () => {
   const handleSubmit = async (data: any) => {
     if (!user) return;
     
-    console.log('📝 Contact form submission:', data);
+    console.log('📝 Contact creation:', data);
     
     try {
       const contactData = {
@@ -80,15 +83,11 @@ const ContactsModule = () => {
       await contactService.create(contactData);
       console.log('✅ Contact created successfully');
 
-      // If status is Win, log the auto-conversion
       if (data.status === 'Win') {
         console.log('🎯 Contact marked as Win - will auto-convert to Active Client and move to Deals');
       }
       
-      // Reset form and close dialog
       form.reset();
-      
-      // Refresh contacts list
       await fetchContacts();
       
       toast({
@@ -105,14 +104,75 @@ const ContactsModule = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants = {
-      'Prospect': 'bg-blue-100 text-blue-800 border-blue-200',
-      'Win': 'bg-green-100 text-green-800 border-green-200',
-      'Lose': 'bg-red-100 text-red-800 border-red-200'
-    };
-    
-    return variants[status as keyof typeof variants] || variants.Prospect;
+  const handleStatusChange = async (contactId: string, newStatus: Contact['status']) => {
+    if (!user) return;
+
+    console.log('🔄 Contact status change:', { contactId, newStatus });
+
+    try {
+      // Update contact status in Firestore
+      await updateDoc(doc(db, 'contacts', contactId), {
+        status: newStatus,
+        updatedAt: Timestamp.now()
+      });
+
+      // Update local state
+      setContacts(prev => prev.map(contact => 
+        contact.id === contactId ? { ...contact, status: newStatus } : contact
+      ));
+
+      const contact = contacts.find(c => c.id === contactId);
+      
+      // Handle Win status - create deal and project
+      if (newStatus === 'Win' && contact) {
+        console.log('🎯 Creating deal and project for Win contact:', contact.name);
+        
+        // Create deal
+        const dealData = {
+          contactRef: contactId,
+          dealName: `Deal for ${contact.company}`,
+          value: 50000, // Default value
+          status: 'Completed' as const,
+          startDate: Timestamp.now(),
+          endDate: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
+          userRef: user.user_id
+        };
+        
+        console.log('🔥 Creating deal:', dealData);
+        const dealId = await dealService.create(dealData);
+        
+        // Create project
+        const projectData = {
+          dealRef: dealId,
+          title: `Project: ${contact.company}`,
+          status: 'Active' as const,
+          userRef: user.user_id
+        };
+        
+        console.log('🔥 Creating project:', projectData);
+        await projectService.create(projectData);
+        
+        console.log('✅ Deal and project created for Win contact');
+      }
+
+      // Handle Lose status - would hide/remove projects in real implementation
+      if (newStatus === 'Lose' && contact) {
+        console.log('❌ Contact marked as Lose - associated projects should be hidden/removed');
+      }
+
+      toast({
+        title: "Status Updated",
+        description: `${contact?.name} status changed to ${newStatus}`,
+      });
+
+    } catch (error) {
+      console.error('❌ Error updating contact status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update contact status",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -122,95 +182,98 @@ const ContactsModule = () => {
           <h1 className="text-3xl font-bold text-gray-900">Contacts</h1>
           <p className="text-gray-600 mt-2">Manage your business contacts and leads</p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">Add Contact</Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Add New Contact</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Contact name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Contact email" type="email" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Contact phone" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="company"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Company</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Contact company" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+        <div className="flex items-center gap-3">
+          <ExcelImport onImportComplete={fetchContacts} />
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="bg-blue-600 hover:bg-blue-700">Add Contact</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Add New Contact</DialogTitle>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Name</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a status" />
-                          </SelectTrigger>
+                          <Input placeholder="Contact name" {...field} />
                         </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Prospect">Prospect</SelectItem>
-                          <SelectItem value="Win">Win</SelectItem>
-                          <SelectItem value="Lose">Lose</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full">Add Contact</Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Contact email" type="email" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Contact phone" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="company"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Contact company" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Prospect">Prospect</SelectItem>
+                            <SelectItem value="Win">Win</SelectItem>
+                            <SelectItem value="Lose">Lose</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" className="w-full">Add Contact</Button>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {loading ? (
@@ -220,34 +283,11 @@ const ContactsModule = () => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {contacts.map((contact) => (
-            <div key={contact.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-3">
-                <h3 className="text-lg font-semibold text-gray-900 truncate">{contact.name}</h3>
-                <Badge 
-                  className={`text-xs font-medium px-2 py-1 rounded-full ${getStatusBadge(contact.status)}`}
-                >
-                  {contact.status}
-                </Badge>
-              </div>
-              
-              <div className="space-y-2 text-sm text-gray-600">
-                <p className="truncate">
-                  <span className="font-medium">Email:</span> {contact.email}
-                </p>
-                <p className="truncate">
-                  <span className="font-medium">Phone:</span> {contact.phone}
-                </p>
-                <p className="truncate">
-                  <span className="font-medium">Company:</span> {contact.company}
-                </p>
-              </div>
-              
-              {contact.status === 'Win' && (
-                <div className="mt-3 text-xs text-green-700 bg-green-50 px-2 py-1 rounded">
-                  ✓ Active Client
-                </div>
-              )}
-            </div>
+            <ContactCard
+              key={contact.id}
+              contact={contact}
+              onStatusChange={handleStatusChange}
+            />
           ))}
           
           {contacts.length === 0 && (

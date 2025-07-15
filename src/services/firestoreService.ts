@@ -1,4 +1,3 @@
-
 import { 
   collection, 
   addDoc, 
@@ -154,10 +153,10 @@ export const dealService = {
     const dealData = {
       contactRef: contactId,
       dealName: `Deal for ${contactData.company}`,
-      value: 0,
-      status: 'Ongoing' as const,
+      value: 50000,
+      status: 'Completed' as const,
       startDate: Timestamp.now(),
-      endDate: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)), // 30 days from now
+      endDate: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
       userRef: contactData.userRef
     };
     return await this.create(dealData);
