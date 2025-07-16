@@ -21,6 +21,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import EnhancedContactCard from "./EnhancedContactCard";
 import EnhancedContactForm from "./EnhancedContactForm";
+import ContactDetailView from "./ContactDetailView";
 import { Search, Filter, Plus, Users, TrendingUp, Target, UserX } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -32,6 +33,7 @@ const EnhancedContactsModule = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
 
   // Filter states
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -136,6 +138,15 @@ const EnhancedContactsModule = () => {
     }
   };
 
+  const handleContactClick = (contact: Contact) => {
+    console.log('👤 Opening contact detail view for:', contact.name);
+    setSelectedContact(contact);
+  };
+
+  const handleBackToList = () => {
+    setSelectedContact(null);
+  };
+
   const getUniqueIndustries = () => {
     const industries = contacts.map(c => c.industry).filter(Boolean);
     return [...new Set(industries)];
@@ -156,6 +167,16 @@ const EnhancedContactsModule = () => {
     };
   };
 
+  // Show contact detail view if a contact is selected
+  if (selectedContact) {
+    return (
+      <ContactDetailView 
+        contact={selectedContact} 
+        onBack={handleBackToList}
+      />
+    );
+  }
+
   const stats = getStats();
 
   return (
@@ -164,7 +185,7 @@ const EnhancedContactsModule = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Enhanced Contacts</h1>
-          <p className="text-gray-600 mt-2">Intelligent contact management with advanced filtering</p>
+          <p className="text-gray-600 mt-2">Intelligent contact management with lead tracking</p>
         </div>
         <div className="flex items-center gap-3">
           <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
@@ -339,6 +360,7 @@ const EnhancedContactsModule = () => {
               contact={contact}
               onStatusChange={handleStatusChange}
               onDelete={fetchContacts}
+              onClick={() => handleContactClick(contact)}
             />
           ))}
           

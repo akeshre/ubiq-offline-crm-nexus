@@ -23,6 +23,7 @@ import {
 
 const EnhancedReportsModule = () => {
   const [analytics, setAnalytics] = useState<any>(null);
+  const [projectsByLead, setProjectsByLead] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -39,10 +40,15 @@ const EnhancedReportsModule = () => {
     console.log('📊 Loading advanced report data...');
     try {
       setLoading(true);
-      const analyticsData = await analyticsService.getAdvancedAnalytics(user.user_id);
+      const [analyticsData, projectsLeadData] = await Promise.all([
+        analyticsService.getAdvancedAnalytics(user.user_id),
+        analyticsService.getProjectsByLeadAnalytics(user.user_id)
+      ]);
+      
       setAnalytics(analyticsData);
+      setProjectsByLead(projectsLeadData);
       console.log('✅ Advanced report data loaded successfully');
-      console.log('📈 Advanced analytics data:', analyticsData);
+      console.log('📈 Projects by lead data:', projectsLeadData);
     } catch (error) {
       console.error('❌ Failed to load advanced report data:', error);
       toast({
@@ -60,6 +66,15 @@ const EnhancedReportsModule = () => {
     toast({
       title: "Export Report",
       description: "Advanced report export functionality would be implemented here",
+    });
+  };
+
+  const handleLeadRowClick = (leadId: string) => {
+    console.log('🔍 Filter projects by lead:', leadId);
+    // This would navigate to projects page with lead filter
+    toast({
+      title: "Filter Projects",
+      description: "Would filter projects page by selected lead",
     });
   };
 
@@ -173,7 +188,7 @@ const EnhancedReportsModule = () => {
         </Card>
       </div>
 
-      {/* Conversion Funnel */}
+      {/* Conversion Funnel & Projects by Lead */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <Card>
           <CardHeader>
@@ -199,6 +214,42 @@ const EnhancedReportsModule = () => {
 
         <Card>
           <CardHeader>
+            <CardTitle>Projects by Lead</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {projectsByLead.length > 0 ? (
+              <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                {projectsByLead.map((leadData, index) => (
+                  <div 
+                    key={index}
+                    className="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => handleLeadRowClick(leadData.lead_id)}
+                  >
+                    <div>
+                      <p className="font-medium text-gray-900">{leadData.lead_name}</p>
+                      <p className="text-sm text-gray-600">Click to filter projects</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-blue-600">{leadData.project_count}</p>
+                      <p className="text-xs text-gray-500">projects</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No project data available</p>
+                <p className="text-gray-400 text-sm mt-1">Projects will appear here once created</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Lead Sources & Industry Breakdown */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <Card>
+          <CardHeader>
             <CardTitle>Lead Sources Performance</CardTitle>
           </CardHeader>
           <CardContent>
@@ -219,10 +270,7 @@ const EnhancedReportsModule = () => {
             </ResponsiveContainer>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Industry Breakdown & Task Efficiency */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <Card>
           <CardHeader>
             <CardTitle>Industry Breakdown</CardTitle>
@@ -249,41 +297,50 @@ const EnhancedReportsModule = () => {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+      </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Task Management Efficiency</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+      {/* Task Management Efficiency */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Task Management Efficiency</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="text-center p-4 border rounded-lg">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Total Tasks</span>
                 <span className="font-bold">{analytics.tasks.total}</span>
               </div>
+            </div>
+            <div className="text-center p-4 border rounded-lg">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Completed</span>
                 <span className="font-bold text-green-600">{analytics.tasks.completed}</span>
               </div>
+            </div>
+            <div className="text-center p-4 border rounded-lg">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Overdue</span>
                 <span className="font-bold text-red-600">{analytics.tasks.overdue}</span>
               </div>
-              <div className="border-t pt-4">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium text-gray-700">Task Efficiency</span>
-                  <span className="font-bold text-blue-600">{analytics.tasks.efficiency}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full" 
-                    style={{ width: `${analytics.tasks.efficiency}%` }}
-                  ></div>
-                </div>
+            </div>
+            <div className="text-center p-4 border rounded-lg">
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-gray-700">Efficiency</span>
+                <span className="font-bold text-blue-600">{analytics.tasks.efficiency}%</span>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+          <div className="mt-4">
+            <div className="w-full bg-gray-200 rounded-full h-3">
+              <div 
+                className="bg-blue-600 h-3 rounded-full transition-all duration-300" 
+                style={{ width: `${analytics.tasks.efficiency}%` }}
+              ></div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Source ROI Analysis */}
       <Card>

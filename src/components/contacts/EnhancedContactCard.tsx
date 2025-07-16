@@ -1,14 +1,8 @@
 
 import React from "react";
-import { Contact, contactService } from "@/services/firestoreService";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -16,60 +10,48 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { format } from "date-fns";
-import { Calendar, MapPin, Phone, Mail, Building, Tag, Trash2 } from "lucide-react";
+import { contactService, type Contact } from "@/services/firestoreService";
+import { 
+  Phone, 
+  Mail, 
+  Building, 
+  Tag, 
+  Calendar, 
+  Trash2,
+  User,
+  MapPin
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
 
 interface EnhancedContactCardProps {
   contact: Contact;
   onStatusChange: (contactId: string, newStatus: Contact['status']) => void;
-  onDelete?: () => void;
+  onDelete: () => void;
+  onClick?: () => void;
 }
 
-const EnhancedContactCard: React.FC<EnhancedContactCardProps> = ({
-  contact,
-  onStatusChange,
-  onDelete
+const EnhancedContactCard: React.FC<EnhancedContactCardProps> = ({ 
+  contact, 
+  onStatusChange, 
+  onDelete,
+  onClick 
 }) => {
   const { toast } = useToast();
-  const { user } = useAuth();
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Prospect": return "bg-blue-100 text-blue-800";
-      case "Negotiation": return "bg-yellow-100 text-yellow-800";
-      case "Won": return "bg-green-100 text-green-800";
-      case "Lost": return "bg-red-100 text-red-800";
-      default: return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const getSourceColor = (source: string) => {
-    switch (source) {
-      case "Website": return "bg-purple-100 text-purple-800";
-      case "Referral": return "bg-green-100 text-green-800";
-      case "Outreach": return "bg-blue-100 text-blue-800";
-      case "Cold Call": return "bg-orange-100 text-orange-800";
-      case "Inbound": return "bg-teal-100 text-teal-800";
-      default: return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!user || !contact.id) return;
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
     
-    if (!confirm(`Are you sure you want to delete ${contact.name} and all linked deals, projects, and tasks?`)) {
+    if (!confirm(`Are you sure you want to delete ${contact.name}? This will also remove all linked deals, projects, and tasks.`)) {
       return;
     }
 
     try {
-      await contactService.delete(contact.id);
+      await contactService.delete(contact.id!);
+      onDelete();
       toast({
         title: "Contact deleted",
         description: `${contact.name} and all linked records have been removed.`,
       });
-      if (onDelete) onDelete();
     } catch (error) {
       console.error('❌ Error deleting contact:', error);
       toast({
@@ -80,131 +62,156 @@ const EnhancedContactCard: React.FC<EnhancedContactCardProps> = ({
     }
   };
 
+  const handleStatusChange = (e: React.MouseEvent, newStatus: string) => {
+    e.stopPropagation(); // Prevent card click
+    onStatusChange(contact.id!, newStatus as Contact['status']);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Won': return 'bg-green-100 text-green-800';
+      case 'Negotiation': return 'bg-yellow-100 text-yellow-800';
+      case 'Prospect': return 'bg-blue-100 text-blue-800';
+      case 'Lost': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getSourceColor = (source?: string) => {
+    switch (source) {
+      case 'Website': return 'bg-purple-100 text-purple-800';
+      case 'Referral': return 'bg-green-100 text-green-800';
+      case 'Outreach': return 'bg-blue-100 text-blue-800';
+      case 'Cold Call': return 'bg-orange-100 text-orange-800';
+      case 'Inbound': return 'bg-indigo-100 text-indigo-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   return (
-    <Card className="hover:shadow-lg transition-shadow h-full">
-      <CardHeader className="pb-3">
+    <Card 
+      className="h-full hover:shadow-lg transition-all duration-200 cursor-pointer group"
+      onClick={onClick}
+    >
+      <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
-          <CardTitle className="text-lg">{contact.name}</CardTitle>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleDelete}
-            className="h-8 w-8 p-0"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Badge className={getStatusColor(contact.status)}>
-            {contact.status}
-          </Badge>
-          {contact.source && (
-            <Badge variant="outline" className={getSourceColor(contact.source)}>
-              {contact.source}
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-lg text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+              {contact.name}
+            </h3>
+            <div className="flex items-center text-gray-600 text-sm mt-1">
+              <Building className="w-4 h-4 mr-1 flex-shrink-0" />
+              <span className="truncate">{contact.company_name}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 ml-2">
+            <Badge className={getStatusColor(contact.status)}>
+              {contact.status}
             </Badge>
-          )}
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
-      
-      <CardContent className="space-y-3">
-        {/* Contact Info */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Building className="w-4 h-4" />
-            <span>{contact.company_name}</span>
-          </div>
-          
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Mail className="w-4 h-4" />
+
+      <CardContent className="pt-0">
+        {/* Contact Information */}
+        <div className="space-y-3">
+          <div className="flex items-center text-gray-600 text-sm">
+            <Mail className="w-4 h-4 mr-2 flex-shrink-0" />
             <span className="truncate">{contact.email}</span>
           </div>
           
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Phone className="w-4 h-4" />
+          <div className="flex items-center text-gray-600 text-sm">
+            <Phone className="w-4 h-4 mr-2 flex-shrink-0" />
             <span>{contact.phone}</span>
           </div>
 
           {contact.designation && (
-            <div className="text-sm text-gray-600">
-              <span className="font-medium">Role:</span> {contact.designation}
+            <div className="flex items-center text-gray-600 text-sm">
+              <User className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span className="truncate">{contact.designation}</span>
             </div>
           )}
 
           {contact.industry && (
-            <div className="text-sm text-gray-600">
-              <span className="font-medium">Industry:</span> {contact.industry}
+            <div className="flex items-center text-gray-600 text-sm">
+              <MapPin className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span className="truncate">{contact.industry}</span>
             </div>
           )}
         </div>
 
-        {/* Tags */}
-        {contact.tags && contact.tags.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-1 text-sm text-gray-600">
-              <Tag className="w-4 h-4" />
-              <span className="font-medium">Tags:</span>
+        {/* Source & Tags */}
+        <div className="mt-4 space-y-2">
+          {contact.source && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">Source:</span>
+              <Badge variant="outline" className={getSourceColor(contact.source)}>
+                {contact.source}
+              </Badge>
             </div>
-            <div className="flex flex-wrap gap-1">
-              {contact.tags.map((tag, index) => (
-                <Badge key={index} variant="secondary" className="text-xs">
-                  {tag}
-                </Badge>
-              ))}
+          )}
+
+          {contact.tags && contact.tags.length > 0 && (
+            <div className="flex items-start gap-2">
+              <Tag className="w-3 h-3 text-gray-400 mt-1 flex-shrink-0" />
+              <div className="flex flex-wrap gap-1">
+                {contact.tags.slice(0, 3).map((tag, index) => (
+                  <Badge key={index} variant="outline" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
+                {contact.tags.length > 3 && (
+                  <Badge variant="outline" className="text-xs">
+                    +{contact.tags.length - 3}
+                  </Badge>
+                )}
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* Last Activity */}
-        {contact.last_activity && (
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Calendar className="w-4 h-4" />
-            <span>Last activity: {format(contact.last_activity.toDate(), "MMM dd, yyyy")}</span>
-          </div>
-        )}
-
-        {/* Status Changer */}
-        <div className="pt-2 border-t">
-          <label className="text-sm font-medium text-gray-700 mb-2 block">
-            Change Status:
-          </label>
-          <Select
-            value={contact.status}
-            onValueChange={(value) => onStatusChange(contact.id!, value as Contact['status'])}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Prospect">Prospect</SelectItem>
-              <SelectItem value="Negotiation">Negotiation</SelectItem>
-              <SelectItem value="Won">Won</SelectItem>
-              <SelectItem value="Lost">Lost</SelectItem>
-            </SelectContent>
-          </Select>
+          )}
         </div>
 
-        {/* Notes */}
-        {contact.notes && (
-          <div className="pt-2 border-t">
-            <div className="text-sm text-gray-600">
-              <span className="font-medium">Notes:</span>
-              <p className="mt-1 text-xs">{contact.notes}</p>
-            </div>
+        {/* Status Change & Last Activity */}
+        <div className="mt-4 pt-4 border-t space-y-3">
+          <div className="flex items-center text-xs text-gray-500">
+            <Calendar className="w-3 h-3 mr-1" />
+            <span>
+              {contact.last_activity 
+                ? `Last activity: ${contact.last_activity.toDate().toLocaleDateString()}`
+                : `Created: ${contact.createdAt?.toDate().toLocaleDateString()}`
+              }
+            </span>
           </div>
-        )}
 
-        {/* Status Timeline */}
-        {contact.status_timeline && contact.status_timeline.length > 1 && (
-          <div className="pt-2 border-t">
-            <div className="text-sm font-medium text-gray-700 mb-2">Status History:</div>
-            <div className="space-y-1 max-h-20 overflow-y-auto">
-              {contact.status_timeline.slice(-3).reverse().map((timeline, index) => (
-                <div key={index} className="text-xs text-gray-500 flex justify-between">
-                  <span>{timeline.status}</span>
-                  <span>{format(timeline.changed_at.toDate(), "MMM dd")}</span>
-                </div>
-              ))}
-            </div>
+          <div onClick={(e) => e.stopPropagation()}>
+            <Select
+              value={contact.status}
+              onValueChange={(value) => handleStatusChange(new MouseEvent('click') as any, value)}
+            >
+              <SelectTrigger className="w-full h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Prospect">Prospect</SelectItem>
+                <SelectItem value="Negotiation">Negotiation</SelectItem>
+                <SelectItem value="Won">Won</SelectItem>
+                <SelectItem value="Lost">Lost</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Notes Preview */}
+        {contact.notes && (
+          <div className="mt-3 p-2 bg-gray-50 rounded text-xs text-gray-600">
+            <p className="line-clamp-2">{contact.notes}</p>
           </div>
         )}
       </CardContent>

@@ -64,6 +64,9 @@ export interface Project {
   company_name: string;
   title: string;
   status: 'Active' | 'Completed' | 'Paused';
+  lead_id: string;
+  lead_name: string;
+  due_date?: Timestamp;
   milestones: Array<{
     title: string;
     due_date: Timestamp;
@@ -398,12 +401,20 @@ export const projectService = {
 
   async createFromDeal(dealId: string, dealData: any) {
     console.log('🔄 Auto-creating project from deal:', dealId);
+    
+    // Get contact details for lead info
+    const contactDoc = await getDoc(doc(db, 'contacts', dealData.contact_id));
+    const contactData = contactDoc.data() as Contact;
+    
     const projectData = {
       linked_deal_id: dealId,
       contact_id: dealData.contact_id,
       company_name: dealData.company_name,
       title: `Project: ${dealData.deal_name}`,
       status: 'Active' as const,
+      lead_id: dealData.contact_id,
+      lead_name: contactData?.name || 'Unknown Lead',
+      due_date: dealData.end_date,
       milestones: [],
       assigned_team: [dealData.userRef],
       userRef: dealData.userRef
@@ -432,6 +443,7 @@ export const projectService = {
 
   async getAll(userRef: string, filters?: {
     status?: Project['status'];
+    lead_id?: string;
     showLost?: boolean;
   }) {
     console.log('🔍 Fetching enhanced projects for user:', userRef, 'with filters:', filters);
@@ -440,6 +452,10 @@ export const projectService = {
       
       if (filters?.status) {
         q = query(q, where('status', '==', filters.status));
+      }
+
+      if (filters?.lead_id) {
+        q = query(q, where('lead_id', '==', filters.lead_id));
       }
 
       const querySnapshot = await getDocs(q);
@@ -459,6 +475,16 @@ export const projectService = {
       return projects;
     } catch (error) {
       console.error('❌ Error fetching enhanced projects:', error);
+      throw error;
+    }
+  },
+
+  async getByLead(userRef: string, leadId: string) {
+    console.log('🔍 Fetching projects by lead:', leadId);
+    try {
+      return await this.getAll(userRef, { lead_id: leadId });
+    } catch (error) {
+      console.error('❌ Error fetching projects by lead:', error);
       throw error;
     }
   }
@@ -653,6 +679,30 @@ export const analyticsService = {
       };
     } catch (error) {
       console.error('❌ Error fetching tasks analytics:', error);
+      throw error;
+    }
+  },
+
+  async getProjectsByLeadAnalytics(userRef: string) {
+    console.log('📊 Fetching projects by lead analytics for user:', userRef);
+    try {
+      const projects = await projectService.getAll(userRef, { showLost: true });
+      const projectsByLead = projects.reduce((acc, project) => {
+        const leadName = project.lead_name || 'Unknown Lead';
+        if (!acc[leadName]) {
+          acc[leadName] = { count: 0, lead_id: project.lead_id };
+        }
+        acc[leadName].count++;
+        return acc;
+      }, {} as Record<string, { count: number; lead_id: string }>);
+
+      return Object.entries(projectsByLead).map(([leadName, data]) => ({
+        lead_name: leadName,
+        lead_id: data.lead_id,
+        project_count: data.count
+      }));
+    } catch (error) {
+      console.error('❌ Error fetching projects by lead analytics:', error);
       throw error;
     }
   },
