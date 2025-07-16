@@ -58,11 +58,15 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ onImportComplete }) => {
         }
 
         try {
-          // Create project
+          // Create project with all required fields
           const projectData = {
             title: projectName,
             status: status,
-            dealRef: `excel-import-${Date.now()}-${i}`, // Placeholder deal ref
+            linked_deal_id: `excel-import-${Date.now()}-${i}`, // Placeholder deal ref
+            contact_id: matchingContact.id!,
+            company_name: matchingContact.company_name,
+            milestones: [],
+            assigned_team: [user.user_id],
             userRef: user.user_id
           };
 

@@ -1,4 +1,3 @@
-
 import { 
   collection, 
   addDoc, 
@@ -235,6 +234,16 @@ export const contactService = {
       return contacts;
     } catch (error) {
       console.error('❌ Error fetching enhanced contacts:', error);
+      throw error;
+    }
+  },
+
+  async getWinContacts(userRef: string) {
+    console.log('🏆 Fetching won contacts for user:', userRef);
+    try {
+      return await this.getAll(userRef, { status: 'Won' });
+    } catch (error) {
+      console.error('❌ Error fetching won contacts:', error);
       throw error;
     }
   }
@@ -627,16 +636,5 @@ export const analyticsService = {
       console.error('❌ Error fetching advanced analytics:', error);
       throw error;
     }
-  }
-};
-
-// Add getWinContacts method to contactService
-contactService.getWinContacts = async function(userRef: string) {
-  console.log('🏆 Fetching won contacts for user:', userRef);
-  try {
-    return await this.getAll(userRef, { status: 'Won' });
-  } catch (error) {
-    console.error('❌ Error fetching won contacts:', error);
-    throw error;
   }
 };
