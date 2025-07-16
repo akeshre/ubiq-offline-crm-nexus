@@ -19,8 +19,9 @@ const ContactCard: React.FC<ContactCardProps> = ({ contact, onStatusChange }) =>
   const getStatusBadge = (status: string) => {
     const variants = {
       'Prospect': 'bg-blue-100 text-blue-800 border-blue-200',
-      'Win': 'bg-green-100 text-green-800 border-green-200',
-      'Lose': 'bg-red-100 text-red-800 border-red-200'
+      'Won': 'bg-green-100 text-green-800 border-green-200',
+      'Lost': 'bg-red-100 text-red-800 border-red-200',
+      'Negotiation': 'bg-yellow-100 text-yellow-800 border-yellow-200'
     };
     
     return variants[status as keyof typeof variants] || variants.Prospect;
@@ -41,10 +42,10 @@ const ContactCard: React.FC<ContactCardProps> = ({ contact, onStatusChange }) =>
     <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
       {/* Header with Company Name and Status */}
       <div className="flex justify-between items-start mb-4">
-        <h3 className="text-xl font-bold text-gray-900">{contact.company}</h3>
+        <h3 className="text-xl font-bold text-gray-900">{contact.company_name}</h3>
         <div className="flex flex-col items-end gap-2">
           <Badge className={`text-xs font-medium px-3 py-1 rounded-full ${getStatusBadge(contact.status)}`}>
-            {contact.status === 'Win' ? 'Active Client' : contact.status}
+            {contact.status === 'Won' ? 'Active Client' : contact.status}
           </Badge>
           <Select onValueChange={handleStatusChange} defaultValue={contact.status}>
             <SelectTrigger className="w-28 h-8 text-xs">
@@ -52,8 +53,9 @@ const ContactCard: React.FC<ContactCardProps> = ({ contact, onStatusChange }) =>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="Prospect">Prospect</SelectItem>
-              <SelectItem value="Win">Win</SelectItem>
-              <SelectItem value="Lose">Lose</SelectItem>
+              <SelectItem value="Negotiation">Negotiation</SelectItem>
+              <SelectItem value="Won">Won</SelectItem>
+              <SelectItem value="Lost">Lost</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -89,7 +91,7 @@ const ContactCard: React.FC<ContactCardProps> = ({ contact, onStatusChange }) =>
           
           <div>
             <span className="font-medium text-gray-700">Assigned to:</span>
-            <span className="ml-2 text-gray-600">{contact.assignedTo || 'Unassigned'}</span>
+            <span className="ml-2 text-gray-600">{contact.assigned_to || 'Unassigned'}</span>
           </div>
         </div>
         
@@ -102,7 +104,7 @@ const ContactCard: React.FC<ContactCardProps> = ({ contact, onStatusChange }) =>
       </div>
       
       {/* Active Client Indicator */}
-      {contact.status === 'Win' && (
+      {contact.status === 'Won' && (
         <div className="mt-4 text-xs text-green-700 bg-green-50 px-3 py-2 rounded-md font-medium">
           ✓ Active Client
         </div>

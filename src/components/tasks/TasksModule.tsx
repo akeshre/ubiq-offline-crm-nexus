@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,10 +27,11 @@ const TasksModule = () => {
     defaultValues: {
       taskTitle: "",
       description: "",
-      dueDate: "",
-      status: "Pending" as "Pending" | "In Progress" | "Done",
-      projectRef: "",
-      dealRef: ""
+      due_date: "",
+      priority: "Medium" as "High" | "Medium" | "Low",
+      status: "Pending" as "Pending" | "In Progress" | "Completed",
+      linked_project_id: "",
+      linked_deal_id: ""
     }
   });
 
@@ -50,8 +52,8 @@ const TasksModule = () => {
       const fetchedTasks = await taskService.getAll(user.user_id);
       console.log('🔗 Linked project/deal for tasks:', fetchedTasks.map(t => ({ 
         id: t.id, 
-        projectRef: t.projectRef, 
-        dealRef: t.dealRef 
+        linked_project_id: t.linked_project_id, 
+        linked_deal_id: t.linked_deal_id 
       })));
       setTasks(fetchedTasks);
     } catch (error) {
@@ -90,8 +92,7 @@ const TasksModule = () => {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'Critical': return 'bg-red-100 text-red-800 border-red-200';
-      case 'High': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'High': return 'bg-red-100 text-red-800 border-red-200';
       case 'Medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'Low': return 'bg-green-100 text-green-800 border-green-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -102,7 +103,7 @@ const TasksModule = () => {
     switch (status) {
       case 'Pending': return 'bg-gray-100 text-gray-800';
       case 'In Progress': return 'bg-blue-100 text-blue-800';
-      case 'Done': return 'bg-green-100 text-green-800';
+      case 'Completed': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -116,15 +117,15 @@ const TasksModule = () => {
   const tasksByStatus = {
     'Pending': tasks.filter(t => t.status === 'Pending'),
     'In Progress': tasks.filter(t => t.status === 'In Progress'),
-    'Done': tasks.filter(t => t.status === 'Done'),
-    'Overdue': tasks.filter(t => isOverdue(t.dueDate) && t.status !== 'Done')
+    'Completed': tasks.filter(t => t.status === 'Completed'),
+    'Overdue': tasks.filter(t => isOverdue(t.due_date) && t.status !== 'Completed')
   };
 
   const onSubmit = async (data: any) => {
     if (!user) return;
     
     console.log('📝 Task data input:', data);
-    console.log('🔗 Linked project/deal:', data.projectRef || data.dealRef);
+    console.log('🔗 Linked project/deal:', data.linked_project_id || data.linked_deal_id);
     
     try {
       setLoading(true);
@@ -132,11 +133,12 @@ const TasksModule = () => {
       const taskData = {
         taskTitle: data.taskTitle,
         description: data.description,
-        dueDate: Timestamp.fromDate(new Date(data.dueDate)),
+        due_date: Timestamp.fromDate(new Date(data.due_date)),
+        priority: data.priority,
         status: data.status,
         userRef: user.user_id,
-        ...(data.projectRef && { projectRef: data.projectRef }),
-        ...(data.dealRef && { dealRef: data.dealRef })
+        ...(data.linked_project_id && { linked_project_id: data.linked_project_id }),
+        ...(data.linked_deal_id && { linked_deal_id: data.linked_deal_id })
       };
 
       await taskService.create(taskData);
@@ -181,13 +183,13 @@ const TasksModule = () => {
   };
 
   const getLinkedName = (task: Task) => {
-    if (task.projectRef) {
-      const project = projects.find(p => p.id === task.projectRef);
+    if (task.linked_project_id) {
+      const project = projects.find(p => p.id === task.linked_project_id);
       return project ? `Project: ${project.title}` : 'Unknown Project';
     }
-    if (task.dealRef) {
-      const deal = deals.find(d => d.id === task.dealRef);
-      return deal ? `Deal: ${deal.dealName}` : 'Unknown Deal';
+    if (task.linked_deal_id) {
+      const deal = deals.find(d => d.id === task.linked_deal_id);
+      return deal ? `Deal: ${deal.deal_name}` : 'Unknown Deal';
     }
     return 'No Link';
   };
@@ -243,13 +245,36 @@ const TasksModule = () => {
                 
                 <FormField
                   control={form.control}
-                  name="dueDate"
+                  name="due_date"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Due Date</FormLabel>
                       <FormControl>
                         <Input type="datetime-local" {...field} required />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Priority</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue="Medium">
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select priority" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="High">High</SelectItem>
+                          <SelectItem value="Medium">Medium</SelectItem>
+                          <SelectItem value="Low">Low</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -270,7 +295,7 @@ const TasksModule = () => {
                         <SelectContent>
                           <SelectItem value="Pending">Pending</SelectItem>
                           <SelectItem value="In Progress">In Progress</SelectItem>
-                          <SelectItem value="Done">Done</SelectItem>
+                          <SelectItem value="Completed">Completed</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -280,7 +305,7 @@ const TasksModule = () => {
                 
                 <FormField
                   control={form.control}
-                  name="projectRef"
+                  name="linked_project_id"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Link to Project (Optional)</FormLabel>
@@ -305,7 +330,7 @@ const TasksModule = () => {
                 
                 <FormField
                   control={form.control}
-                  name="dealRef"
+                  name="linked_deal_id"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Link to Deal (Optional)</FormLabel>
@@ -318,7 +343,7 @@ const TasksModule = () => {
                         <SelectContent>
                           {deals.map((deal) => (
                             <SelectItem key={deal.id} value={deal.id || ""}>
-                              {deal.dealName}
+                              {deal.deal_name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -373,7 +398,7 @@ const TasksModule = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Completed</p>
-                <p className="text-2xl font-bold text-gray-900">{tasksByStatus['Done'].length}</p>
+                <p className="text-2xl font-bold text-gray-900">{tasksByStatus['Completed'].length}</p>
               </div>
               <CheckSquare className="w-8 h-8 text-green-600" />
             </div>
@@ -417,11 +442,11 @@ const TasksModule = () => {
                         <span className="font-medium text-xs">{getLinkedName(task)}</span>
                       </div>
                       
-                      {task.dueDate && (
+                      {task.due_date && (
                         <div className="flex justify-between">
                           <span className="text-gray-500">Due:</span>
-                          <span className={`font-medium ${isOverdue(task.dueDate) ? 'text-red-600' : ''}`}>
-                            {task.dueDate.toDate().toLocaleDateString()}
+                          <span className={`font-medium ${isOverdue(task.due_date) ? 'text-red-600' : ''}`}>
+                            {task.due_date.toDate().toLocaleDateString()}
                           </span>
                         </div>
                       )}
@@ -440,7 +465,7 @@ const TasksModule = () => {
                           <SelectContent>
                             <SelectItem value="Pending">Pending</SelectItem>
                             <SelectItem value="In Progress">In Progress</SelectItem>
-                            <SelectItem value="Done">Done</SelectItem>
+                            <SelectItem value="Completed">Completed</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

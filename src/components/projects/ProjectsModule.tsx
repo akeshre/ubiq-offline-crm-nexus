@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,7 @@ const ProjectsModule = () => {
     try {
       setLoading(true);
       const fetchedProjects = await projectService.getAll(user.user_id);
-      console.log('🔗 Deal linkage for projects:', fetchedProjects.map(p => ({ id: p.id, dealRef: p.dealRef })));
+      console.log('🔗 Deal linkage for projects:', fetchedProjects.map(p => ({ id: p.id, linked_deal_id: p.linked_deal_id })));
       setProjects(fetchedProjects);
     } catch (error) {
       console.error('❌ Failed to load projects:', error);
@@ -54,7 +55,7 @@ const ProjectsModule = () => {
 
   const getDealName = (dealId: string) => {
     const deal = deals.find(d => d.id === dealId);
-    return deal ? deal.dealName : "Unknown Deal";
+    return deal ? deal.deal_name : "Unknown Deal";
   };
 
   const getStatusColor = (status: string) => {
@@ -129,7 +130,7 @@ const ProjectsModule = () => {
               <div className="flex justify-between items-start">
                 <div>
                   <CardTitle className="text-xl">{project.title}</CardTitle>
-                  <p className="text-gray-600 mt-1">Linked to: {getDealName(project.dealRef)}</p>
+                  <p className="text-gray-600 mt-1">Linked to: {getDealName(project.linked_deal_id)}</p>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(project.status)}`}>
                   {project.status}
@@ -142,8 +143,9 @@ const ProjectsModule = () => {
                 <div>
                   <h4 className="font-medium text-gray-900 mb-2">Project Info</h4>
                   <div className="space-y-1 text-sm text-gray-600">
-                    <p><span className="font-medium">Deal Reference:</span> {project.dealRef}</p>
+                    <p><span className="font-medium">Deal Reference:</span> {project.linked_deal_id}</p>
                     <p><span className="font-medium">Status:</span> {project.status}</p>
+                    <p><span className="font-medium">Company:</span> {project.company_name}</p>
                   </div>
                 </div>
 

@@ -491,6 +491,70 @@ export const taskService = {
 
 // Enhanced Analytics Services
 export const analyticsService = {
+  async getContactsAnalytics(userRef: string) {
+    console.log('📊 Fetching contacts analytics for user:', userRef);
+    try {
+      const contacts = await contactService.getAll(userRef, { showLost: true });
+      return {
+        total: contacts.length,
+        prospect: contacts.filter(c => c.status === 'Prospect').length,
+        win: contacts.filter(c => c.status === 'Won').length,
+        lose: contacts.filter(c => c.status === 'Lost').length,
+        negotiation: contacts.filter(c => c.status === 'Negotiation').length
+      };
+    } catch (error) {
+      console.error('❌ Error fetching contacts analytics:', error);
+      throw error;
+    }
+  },
+
+  async getDealsAnalytics(userRef: string) {
+    console.log('📊 Fetching deals analytics for user:', userRef);
+    try {
+      const deals = await dealService.getAll(userRef, { showLost: true });
+      return {
+        total: deals.length,
+        ongoing: deals.filter(d => d.deal_stage !== 'Won' && d.deal_stage !== 'Lost').length,
+        completed: deals.filter(d => d.deal_stage === 'Won').length,
+        totalValue: deals.reduce((sum, deal) => sum + deal.value, 0)
+      };
+    } catch (error) {
+      console.error('❌ Error fetching deals analytics:', error);
+      throw error;
+    }
+  },
+
+  async getProjectsAnalytics(userRef: string) {
+    console.log('📊 Fetching projects analytics for user:', userRef);
+    try {
+      const projects = await projectService.getAll(userRef, { showLost: true });
+      return {
+        total: projects.length,
+        active: projects.filter(p => p.status === 'Active').length,
+        completed: projects.filter(p => p.status === 'Completed').length
+      };
+    } catch (error) {
+      console.error('❌ Error fetching projects analytics:', error);
+      throw error;
+    }
+  },
+
+  async getTasksAnalytics(userRef: string) {
+    console.log('📊 Fetching tasks analytics for user:', userRef);
+    try {
+      const tasks = await taskService.getAll(userRef);
+      return {
+        total: tasks.length,
+        pending: tasks.filter(t => t.status === 'Pending').length,
+        inProgress: tasks.filter(t => t.status === 'In Progress').length,
+        done: tasks.filter(t => t.status === 'Completed').length
+      };
+    } catch (error) {
+      console.error('❌ Error fetching tasks analytics:', error);
+      throw error;
+    }
+  },
+
   async getAdvancedAnalytics(userRef: string) {
     console.log('📊 Fetching advanced analytics for user:', userRef);
     try {
@@ -563,5 +627,16 @@ export const analyticsService = {
       console.error('❌ Error fetching advanced analytics:', error);
       throw error;
     }
+  }
+};
+
+// Add getWinContacts method to contactService
+contactService.getWinContacts = async function(userRef: string) {
+  console.log('🏆 Fetching won contacts for user:', userRef);
+  try {
+    return await this.getAll(userRef, { status: 'Won' });
+  } catch (error) {
+    console.error('❌ Error fetching won contacts:', error);
+    throw error;
   }
 };

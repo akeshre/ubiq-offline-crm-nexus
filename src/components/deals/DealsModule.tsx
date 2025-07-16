@@ -54,12 +54,13 @@ const DealsModule = () => {
 
   const form = useForm({
     defaultValues: {
-      dealName: "",
-      contactRef: "",
+      deal_name: "",
+      contact_id: "",
+      company_name: "",
       value: 0,
-      status: "Ongoing" as "Ongoing" | "Completed",
-      startDate: "",
-      endDate: ""
+      deal_stage: "Lead" as "Lead" | "Proposal Sent" | "Negotiation" | "Won" | "Lost",
+      start_date: "",
+      end_date: ""
     }
   });
 
@@ -90,16 +91,20 @@ const DealsModule = () => {
     if (!user) return;
     
     console.log('📝 Deal form submission:', data);
-    console.log('🔗 Associated contact:', data.contactRef);
+    console.log('🔗 Associated contact:', data.contact_id);
     
     try {
+      const selectedContact = winContacts.find(c => c.id === data.contact_id);
+      
       const dealData = {
-        dealName: data.dealName,
-        contactRef: data.contactRef,
+        contact_id: data.contact_id,
+        company_id: selectedContact?.company_id,
+        company_name: selectedContact?.company_name || data.company_name,
+        deal_name: data.deal_name,
+        deal_stage: data.deal_stage,
         value: Number(data.value),
-        status: data.status,
-        startDate: Timestamp.fromDate(new Date(data.startDate)),
-        endDate: Timestamp.fromDate(new Date(data.endDate)),
+        start_date: Timestamp.fromDate(new Date(data.start_date)),
+        end_date: Timestamp.fromDate(new Date(data.end_date)),
         userRef: user.user_id
       };
       
@@ -116,7 +121,7 @@ const DealsModule = () => {
       
       toast({
         title: "Deal created successfully",
-        description: `${data.dealName} has been added to your deals.`,
+        description: `${data.deal_name} has been added to your deals.`,
       });
     } catch (error) {
       console.error('❌ Error creating deal:', error);
@@ -151,7 +156,7 @@ const DealsModule = () => {
                 <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                   <FormField
                     control={form.control}
-                    name="dealName"
+                    name="deal_name"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Deal Name</FormLabel>
@@ -164,7 +169,7 @@ const DealsModule = () => {
                   />
                   <FormField
                     control={form.control}
-                    name="contactRef"
+                    name="contact_id"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Contact</FormLabel>
@@ -205,19 +210,22 @@ const DealsModule = () => {
                   />
                   <FormField
                     control={form.control}
-                    name="status"
+                    name="deal_stage"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Status</FormLabel>
+                        <FormLabel>Stage</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select status" />
+                              <SelectValue placeholder="Select stage" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="Ongoing">Ongoing</SelectItem>
-                            <SelectItem value="Completed">Completed</SelectItem>
+                            <SelectItem value="Lead">Lead</SelectItem>
+                            <SelectItem value="Proposal Sent">Proposal Sent</SelectItem>
+                            <SelectItem value="Negotiation">Negotiation</SelectItem>
+                            <SelectItem value="Won">Won</SelectItem>
+                            <SelectItem value="Lost">Lost</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -226,7 +234,7 @@ const DealsModule = () => {
                   />
                   <FormField
                     control={form.control}
-                    name="startDate"
+                    name="start_date"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
                         <FormLabel>Start Date</FormLabel>
@@ -267,7 +275,7 @@ const DealsModule = () => {
                   />
                   <FormField
                     control={form.control}
-                    name="endDate"
+                    name="end_date"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
                         <FormLabel>End Date</FormLabel>
@@ -321,8 +329,9 @@ const DealsModule = () => {
               <TableRow>
                 <TableHead>Deal Name</TableHead>
                 <TableHead>Contact</TableHead>
+                <TableHead>Company</TableHead>
                 <TableHead>Value</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Stage</TableHead>
                 <TableHead>Start Date</TableHead>
                 <TableHead>End Date</TableHead>
               </TableRow>
@@ -330,19 +339,20 @@ const DealsModule = () => {
             <TableBody>
               {deals.map((deal) => (
                 <TableRow key={deal.id}>
-                  <TableCell>{deal.dealName}</TableCell>
+                  <TableCell>{deal.deal_name}</TableCell>
                   <TableCell>
                     {
-                      winContacts.find(contact => contact.id === deal.contactRef)?.name || "N/A"
+                      winContacts.find(contact => contact.id === deal.contact_id)?.name || "N/A"
                     }
                   </TableCell>
-                  <TableCell>{deal.value}</TableCell>
-                  <TableCell>{deal.status}</TableCell>
+                  <TableCell>{deal.company_name}</TableCell>
+                  <TableCell>${deal.value.toLocaleString()}</TableCell>
+                  <TableCell>{deal.deal_stage}</TableCell>
                   <TableCell>
-                    {deal.startDate instanceof Timestamp ? format(deal.startDate.toDate(), "PPP") : "N/A"}
+                    {deal.start_date instanceof Timestamp ? format(deal.start_date.toDate(), "PPP") : "N/A"}
                   </TableCell>
                   <TableCell>
-                    {deal.endDate instanceof Timestamp ? format(deal.endDate.toDate(), "PPP") : "N/A"}
+                    {deal.end_date instanceof Timestamp ? format(deal.end_date.toDate(), "PPP") : "N/A"}
                   </TableCell>
                 </TableRow>
               ))}
