@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -376,7 +377,7 @@ const EnhancedProjectsModule = () => {
           )}
         </Card>
       ) : (
-        // Card View (existing implementation)
+        // Card View
         <div className="space-y-6">
           {filteredProjects.map((project) => (
             <Card key={project.id} className="hover:shadow-lg transition-shadow">
@@ -492,8 +493,19 @@ const EnhancedProjectsModule = () => {
                 </div>
               </CardContent>
             </Card>
-          ))
-        )}
+          ))}
+          
+          {filteredProjects.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-500 text-lg">No projects found</p>
+              <p className="text-gray-400 mt-2">
+                {searchTerm || statusFilter !== "all" || leadFilter !== "all"
+                  ? "Try adjusting your filters"
+                  : "Projects are automatically created from completed deals"
+                }
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
