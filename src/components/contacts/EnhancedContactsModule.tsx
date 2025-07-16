@@ -338,6 +338,7 @@ const EnhancedContactsModule = () => {
               key={contact.id}
               contact={contact}
               onStatusChange={handleStatusChange}
+              onDelete={fetchContacts}
             />
           ))}
           

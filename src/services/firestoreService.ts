@@ -185,6 +185,34 @@ export const contactService = {
     }
   },
 
+  async delete(contactId: string) {
+    console.log('🗑️ Deleting contact and all linked records:', contactId);
+    try {
+      // First get all linked deals
+      const dealsQuery = query(collection(db, 'deals'), where('contact_id', '==', contactId));
+      const dealsSnapshot = await getDocs(dealsQuery);
+      
+      // Delete each linked deal and its projects/tasks
+      for (const dealDoc of dealsSnapshot.docs) {
+        await dealService.delete(dealDoc.id);
+      }
+      
+      // Delete tasks directly linked to contact
+      const tasksQuery = query(collection(db, 'tasks'), where('linked_contact_id', '==', contactId));
+      const tasksSnapshot = await getDocs(tasksQuery);
+      for (const taskDoc of tasksSnapshot.docs) {
+        await deleteDoc(doc(db, 'tasks', taskDoc.id));
+      }
+      
+      // Finally delete the contact
+      await deleteDoc(doc(db, 'contacts', contactId));
+      console.log('✅ Contact and all linked records deleted successfully');
+    } catch (error) {
+      console.error('❌ Error deleting contact:', error);
+      throw error;
+    }
+  },
+
   async getAll(userRef: string, filters?: {
     status?: Contact['status'];
     industry?: string;
@@ -291,6 +319,32 @@ export const dealService = {
     return await this.create(dealData);
   },
 
+  async delete(dealId: string) {
+    console.log('🗑️ Deleting deal and linked records:', dealId);
+    try {
+      // Delete linked projects
+      const projectsQuery = query(collection(db, 'projects'), where('linked_deal_id', '==', dealId));
+      const projectsSnapshot = await getDocs(projectsQuery);
+      for (const projectDoc of projectsSnapshot.docs) {
+        await projectService.delete(projectDoc.id);
+      }
+      
+      // Delete linked tasks
+      const tasksQuery = query(collection(db, 'tasks'), where('linked_deal_id', '==', dealId));
+      const tasksSnapshot = await getDocs(tasksQuery);
+      for (const taskDoc of tasksSnapshot.docs) {
+        await deleteDoc(doc(db, 'tasks', taskDoc.id));
+      }
+      
+      // Delete the deal
+      await deleteDoc(doc(db, 'deals', dealId));
+      console.log('✅ Deal and linked records deleted successfully');
+    } catch (error) {
+      console.error('❌ Error deleting deal:', error);
+      throw error;
+    }
+  },
+
   async getAll(userRef: string, filters?: {
     deal_stage?: Deal['deal_stage'];
     showLost?: boolean;
@@ -355,6 +409,25 @@ export const projectService = {
       userRef: dealData.userRef
     };
     return await this.create(projectData);
+  },
+
+  async delete(projectId: string) {
+    console.log('🗑️ Deleting project and updating linked tasks:', projectId);
+    try {
+      // Update linked tasks to remove project reference
+      const tasksQuery = query(collection(db, 'tasks'), where('linked_project_id', '==', projectId));
+      const tasksSnapshot = await getDocs(tasksQuery);
+      for (const taskDoc of tasksSnapshot.docs) {
+        await updateDoc(doc(db, 'tasks', taskDoc.id), { linked_project_id: null });
+      }
+      
+      // Delete the project
+      await deleteDoc(doc(db, 'projects', projectId));
+      console.log('✅ Project deleted and task references updated');
+    } catch (error) {
+      console.error('❌ Error deleting project:', error);
+      throw error;
+    }
   },
 
   async getAll(userRef: string, filters?: {
@@ -427,6 +500,26 @@ export const taskService = {
       console.log('✅ Updated deal tasks count:', dealId, tasksCount);
     } catch (error) {
       console.error('❌ Error updating deal tasks count:', error);
+    }
+  },
+
+  async delete(taskId: string) {
+    console.log('🗑️ Deleting task:', taskId);
+    try {
+      // Get task to update deal tasks count if needed
+      const taskDoc = await getDoc(doc(db, 'tasks', taskId));
+      if (taskDoc.exists()) {
+        const taskData = taskDoc.data() as Task;
+        if (taskData.linked_deal_id) {
+          await this.updateDealTasksCount(taskData.linked_deal_id);
+        }
+      }
+      
+      await deleteDoc(doc(db, 'tasks', taskId));
+      console.log('✅ Task deleted successfully');
+    } catch (error) {
+      console.error('❌ Error deleting task:', error);
+      throw error;
     }
   },
 
