@@ -182,7 +182,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSuccess, onCancel }) => {
         <Button type="submit" disabled={submitting}>
           {submitting ? "Creating..." : "Create Task"}
         </Button>
-        <Button type="button" variant="outline" onClick={onCancel">
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
       </div>
