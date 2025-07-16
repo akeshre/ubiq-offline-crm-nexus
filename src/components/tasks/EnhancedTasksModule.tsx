@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -24,6 +31,7 @@ import { Plus, Calendar, AlertTriangle, Search, Filter, Trash2, Clock, CheckCirc
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
+import TaskForm from "./TaskForm";
 
 const EnhancedTasksModule = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -34,6 +42,7 @@ const EnhancedTasksModule = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -201,10 +210,26 @@ const EnhancedTasksModule = () => {
           <h1 className="text-3xl font-bold text-gray-900">Tasks</h1>
           <p className="text-gray-600 mt-2">Manage and track tasks across deals and projects</p>
         </div>
-        <Button>
-          <Plus className="w-4 h-4 mr-2" />
-          New Task
-        </Button>
+        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-black text-white hover:bg-gray-800">
+              <Plus className="w-4 h-4 mr-2" />
+              New Task
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Add New Task</DialogTitle>
+            </DialogHeader>
+            <TaskForm 
+              onSuccess={() => {
+                setIsFormOpen(false);
+                loadTasks();
+              }}
+              onCancel={() => setIsFormOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Task Stats */}

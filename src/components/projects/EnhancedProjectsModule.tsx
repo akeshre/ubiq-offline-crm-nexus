@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -24,6 +31,8 @@ import { Plus, Calendar, Users, Search, Filter, Trash2, Building, Target, User }
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
+import ProjectForm from "./ProjectForm";
 
 const EnhancedProjectsModule = () => {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -34,10 +43,13 @@ const EnhancedProjectsModule = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [leadFilter, setLeadFilter] = useState<string>("all");
+  const [groupByLead, setGroupByLead] = useState(false);
   const [showLost, setShowLost] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (user) {
@@ -120,6 +132,10 @@ const EnhancedProjectsModule = () => {
     }
   };
 
+  const handleLeadClick = (leadId: string) => {
+    navigate(`/contacts/${leadId}`);
+  };
+
   const getDealName = (dealId: string) => {
     const deal = deals.find(d => d.id === dealId);
     return deal ? deal.deal_name : "Unknown Deal";
@@ -142,6 +158,21 @@ const EnhancedProjectsModule = () => {
     return uniqueLeads;
   };
 
+  const getGroupedProjects = () => {
+    if (!groupByLead) return { ungrouped: filteredProjects };
+    
+    const grouped: { [key: string]: Project[] } = {};
+    filteredProjects.forEach(project => {
+      const leadKey = project.lead_name || 'Unassigned';
+      if (!grouped[leadKey]) {
+        grouped[leadKey] = [];
+      }
+      grouped[leadKey].push(project);
+    });
+    
+    return grouped;
+  };
+
   const getStats = () => {
     return {
       total: projects.length,
@@ -152,6 +183,7 @@ const EnhancedProjectsModule = () => {
   };
 
   const stats = getStats();
+  const groupedProjects = getGroupedProjects();
 
   return (
     <div className="p-6">
@@ -176,10 +208,26 @@ const EnhancedProjectsModule = () => {
           >
             Card View
           </Button>
-          <Button>
-            <Plus className="w-4 h-4 mr-2" />
-            New Project
-          </Button>
+          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-black text-white hover:bg-gray-800">
+                <Plus className="w-4 h-4 mr-2" />
+                New Project
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Add New Project</DialogTitle>
+              </DialogHeader>
+              <ProjectForm 
+                onSuccess={() => {
+                  setIsFormOpen(false);
+                  loadData();
+                }}
+                onCancel={() => setIsFormOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -274,6 +322,14 @@ const EnhancedProjectsModule = () => {
           </Select>
 
           <Button
+            variant={groupByLead ? "default" : "outline"}
+            onClick={() => setGroupByLead(!groupByLead)}
+            className="whitespace-nowrap"
+          >
+            Group by Lead
+          </Button>
+
+          <Button
             variant={showLost ? "default" : "outline"}
             onClick={() => setShowLost(!showLost)}
             className="whitespace-nowrap"
@@ -310,72 +366,124 @@ const EnhancedProjectsModule = () => {
           <p className="text-gray-500">Loading projects...</p>
         </div>
       ) : viewMode === 'table' ? (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Project Name</TableHead>
-                <TableHead>Lead Name</TableHead>
-                <TableHead>Deal Name</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Due Date</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredProjects.map((project) => (
-                <TableRow key={project.id}>
-                  <TableCell className="font-medium">{project.title}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="link"
-                      className="p-0 h-auto text-blue-600 hover:text-blue-800"
-                      onClick={() => {
-                        // Navigate to contact detail page
-                        console.log('Navigate to contact:', project.lead_id);
-                      }}
-                    >
-                      <User className="w-4 h-4 mr-1" />
-                      {project.lead_name}
-                    </Button>
-                  </TableCell>
-                  <TableCell>{getDealName(project.linked_deal_id)}</TableCell>
-                  <TableCell>{project.company_name}</TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(project.status)}>
-                      {project.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {project.due_date ? format(project.due_date.toDate(), "MMM dd, yyyy") : "No due date"}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDelete(project.id!, project.title)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          
-          {filteredProjects.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">No projects found</p>
-              <p className="text-gray-400 mt-2">
-                {searchTerm || statusFilter !== "all" || leadFilter !== "all"
-                  ? "Try adjusting your filters"
-                  : "Projects are automatically created from completed deals"
-                }
-              </p>
-            </div>
+        <div className="space-y-6">
+          {groupByLead ? (
+            Object.entries(groupedProjects).map(([leadName, leadProjects]) => (
+              <Card key={leadName}>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <User className="w-5 h-5" />
+                    {leadName} ({leadProjects.length} projects)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Project Name</TableHead>
+                        <TableHead>Deal Name</TableHead>
+                        <TableHead>Company</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Due Date</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {leadProjects.map((project) => (
+                        <TableRow key={project.id}>
+                          <TableCell className="font-medium">{project.title}</TableCell>
+                          <TableCell>{getDealName(project.linked_deal_id)}</TableCell>
+                          <TableCell>{project.company_name}</TableCell>
+                          <TableCell>
+                            <Badge className={getStatusColor(project.status)}>
+                              {project.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {project.due_date ? format(project.due_date.toDate(), "MMM dd, yyyy") : "No due date"}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDelete(project.id!, project.title)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Project Name</TableHead>
+                    <TableHead>Lead Name</TableHead>
+                    <TableHead>Deal Name</TableHead>
+                    <TableHead>Company</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredProjects.map((project) => (
+                    <TableRow key={project.id}>
+                      <TableCell className="font-medium">{project.title}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="link"
+                          className="p-0 h-auto text-blue-600 hover:text-blue-800"
+                          onClick={() => handleLeadClick(project.lead_id)}
+                        >
+                          <User className="w-4 h-4 mr-1" />
+                          {project.lead_name}
+                        </Button>
+                      </TableCell>
+                      <TableCell>{getDealName(project.linked_deal_id)}</TableCell>
+                      <TableCell>{project.company_name}</TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(project.status)}>
+                          {project.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {project.due_date ? format(project.due_date.toDate(), "MMM dd, yyyy") : "No due date"}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDelete(project.id!, project.title)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              
+              {filteredProjects.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-gray-500 text-lg">No projects found</p>
+                  <p className="text-gray-400 mt-2">
+                    {searchTerm || statusFilter !== "all" || leadFilter !== "all"
+                      ? "Try adjusting your filters"
+                      : "Projects are automatically created from completed deals"
+                    }
+                  </p>
+                </div>
+              )}
+            </Card>
           )}
-        </Card>
+        </div>
       ) : (
         // Card View
         <div className="space-y-6">
@@ -389,9 +497,7 @@ const EnhancedProjectsModule = () => {
                       Lead: <Button
                         variant="link"
                         className="p-0 h-auto text-blue-600 hover:text-blue-800"
-                        onClick={() => {
-                          console.log('Navigate to contact:', project.lead_id);
-                        }}
+                        onClick={() => handleLeadClick(project.lead_id)}
                       >
                         {project.lead_name}
                       </Button>
