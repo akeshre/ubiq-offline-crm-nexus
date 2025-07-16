@@ -27,12 +27,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { projectService, dealService, contactService, type Project, type Deal, type Contact } from "@/services/firestoreService";
-import { Plus, Calendar, Users, Search, Filter, Trash2, Building, Target, User } from "lucide-react";
+import { Plus, Calendar, Users, Search, Filter, Trash2, Building, Target, User, Grid, List } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import ProjectForm from "./ProjectForm";
+
+const PROJECT_OWNERS = [
+  "Arpit",
+  "Sarvjeet", 
+  "Rahul",
+  "Rohit",
+  "Praveen"
+];
 
 const EnhancedProjectsModule = () => {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -42,6 +50,7 @@ const EnhancedProjectsModule = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [ownerFilter, setOwnerFilter] = useState<string>("all");
   const [leadFilter, setLeadFilter] = useState<string>("all");
   const [groupByLead, setGroupByLead] = useState(false);
   const [showLost, setShowLost] = useState(false);
@@ -59,7 +68,7 @@ const EnhancedProjectsModule = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [projects, searchTerm, statusFilter, leadFilter]);
+  }, [projects, searchTerm, statusFilter, ownerFilter, leadFilter]);
 
   const loadData = async () => {
     if (!user) return;
@@ -95,12 +104,17 @@ const EnhancedProjectsModule = () => {
       filtered = filtered.filter(project =>
         project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         project.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        project.lead_name.toLowerCase().includes(searchTerm.toLowerCase())
+        project.lead_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        project.project_owner?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     if (statusFilter !== "all") {
       filtered = filtered.filter(project => project.status === statusFilter);
+    }
+
+    if (ownerFilter !== "all") {
+      filtered = filtered.filter(project => project.project_owner === ownerFilter);
     }
 
     if (leadFilter !== "all") {
@@ -133,7 +147,7 @@ const EnhancedProjectsModule = () => {
   };
 
   const handleLeadClick = (leadId: string) => {
-    navigate(`/contacts/${leadId}`);
+    navigate(`/leads/${leadId}`);
   };
 
   const getDealName = (dealId: string) => {
@@ -199,14 +213,16 @@ const EnhancedProjectsModule = () => {
             onClick={() => setViewMode('table')}
             size="sm"
           >
-            Table View
+            <List className="w-4 h-4 mr-2" />
+            Table
           </Button>
           <Button
             variant={viewMode === 'cards' ? "default" : "outline"}
             onClick={() => setViewMode('cards')}
             size="sm"
           >
-            Card View
+            <Grid className="w-4 h-4 mr-2" />
+            Cards
           </Button>
           <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogTrigger asChild>
@@ -231,7 +247,7 @@ const EnhancedProjectsModule = () => {
         </div>
       </div>
 
-      {/* Project Stats */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <Card>
           <CardContent className="p-6">
@@ -289,7 +305,7 @@ const EnhancedProjectsModule = () => {
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <Input
-                placeholder="Search projects, companies, leads..."
+                placeholder="Search projects, companies, leads, owners..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -306,6 +322,18 @@ const EnhancedProjectsModule = () => {
               <SelectItem value="Active">Active</SelectItem>
               <SelectItem value="Completed">Completed</SelectItem>
               <SelectItem value="Paused">Paused</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filter by Owner" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Owners</SelectItem>
+              {PROJECT_OWNERS.map(owner => (
+                <SelectItem key={owner} value={owner}>{owner}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
@@ -345,13 +373,14 @@ const EnhancedProjectsModule = () => {
         <p className="text-sm text-gray-600">
           Showing {filteredProjects.length} of {projects.length} projects
         </p>
-        {(searchTerm || statusFilter !== "all" || leadFilter !== "all") && (
+        {(searchTerm || statusFilter !== "all" || ownerFilter !== "all" || leadFilter !== "all") && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => {
               setSearchTerm("");
               setStatusFilter("all");
+              setOwnerFilter("all");
               setLeadFilter("all");
             }}
           >
@@ -383,6 +412,7 @@ const EnhancedProjectsModule = () => {
                         <TableHead>Project Name</TableHead>
                         <TableHead>Deal Name</TableHead>
                         <TableHead>Company</TableHead>
+                        <TableHead>Project Owner</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Due Date</TableHead>
                         <TableHead>Actions</TableHead>
@@ -394,6 +424,7 @@ const EnhancedProjectsModule = () => {
                           <TableCell className="font-medium">{project.title}</TableCell>
                           <TableCell>{getDealName(project.linked_deal_id)}</TableCell>
                           <TableCell>{project.company_name}</TableCell>
+                          <TableCell>{project.project_owner || 'Unassigned'}</TableCell>
                           <TableCell>
                             <Badge className={getStatusColor(project.status)}>
                               {project.status}
@@ -427,6 +458,7 @@ const EnhancedProjectsModule = () => {
                     <TableHead>Lead Name</TableHead>
                     <TableHead>Deal Name</TableHead>
                     <TableHead>Company</TableHead>
+                    <TableHead>Project Owner</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead>Actions</TableHead>
@@ -448,6 +480,7 @@ const EnhancedProjectsModule = () => {
                       </TableCell>
                       <TableCell>{getDealName(project.linked_deal_id)}</TableCell>
                       <TableCell>{project.company_name}</TableCell>
+                      <TableCell>{project.project_owner || 'Unassigned'}</TableCell>
                       <TableCell>
                         <Badge className={getStatusColor(project.status)}>
                           {project.status}
@@ -474,7 +507,7 @@ const EnhancedProjectsModule = () => {
                 <div className="text-center py-12">
                   <p className="text-gray-500 text-lg">No projects found</p>
                   <p className="text-gray-400 mt-2">
-                    {searchTerm || statusFilter !== "all" || leadFilter !== "all"
+                    {searchTerm || statusFilter !== "all" || ownerFilter !== "all" || leadFilter !== "all"
                       ? "Try adjusting your filters"
                       : "Projects are automatically created from completed deals"
                     }
@@ -486,13 +519,13 @@ const EnhancedProjectsModule = () => {
         </div>
       ) : (
         // Card View
-        <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => (
             <Card key={project.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
-                    <CardTitle className="text-xl">{project.title}</CardTitle>
+                    <CardTitle className="text-lg">{project.title}</CardTitle>
                     <p className="text-gray-600 mt-1">
                       Lead: <Button
                         variant="link"
@@ -502,7 +535,7 @@ const EnhancedProjectsModule = () => {
                         {project.lead_name}
                       </Button>
                     </p>
-                    <p className="text-gray-600">Linked to: {getDealName(project.linked_deal_id)}</p>
+                    <p className="text-gray-600">Owner: {project.project_owner || 'Unassigned'}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge className={getStatusColor(project.status)}>
@@ -519,82 +552,24 @@ const EnhancedProjectsModule = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2">Project Info</h4>
-                    <div className="space-y-1 text-sm text-gray-600">
-                      <p><span className="font-medium">Deal Reference:</span> {project.linked_deal_id}</p>
-                      <p><span className="font-medium">Status:</span> {project.status}</p>
-                      <p><span className="font-medium">Company:</span> {project.company_name}</p>
-                      <p><span className="font-medium">Lead:</span> {project.lead_name}</p>
-                    </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Deal:</span>
+                    <span className="text-sm font-medium">{getDealName(project.linked_deal_id)}</span>
                   </div>
-
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2 flex items-center">
-                      <Calendar className="w-4 h-4 mr-1" />
-                      Timeline
-                    </h4>
-                    <div className="text-sm text-gray-600">
-                      <p>Created: {project.createdAt?.toDate().toLocaleDateString()}</p>
-                      {project.due_date && (
-                        <p>Due: {format(project.due_date.toDate(), "MMM dd, yyyy")}</p>
-                      )}
-                    </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Company:</span>
+                    <span className="text-sm">{project.company_name}</span>
                   </div>
-
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2 flex items-center">
-                      <Users className="w-4 h-4 mr-1" />
-                      Team ({project.assigned_team?.length || 0})
-                    </h4>
-                    <div className="text-sm text-gray-600">
-                      {project.assigned_team?.length ? (
-                        <p>{project.assigned_team.length} member(s) assigned</p>
-                      ) : (
-                        <p>No team members assigned</p>
-                      )}
-                    </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Due Date:</span>
+                    <span className="text-sm">
+                      {project.due_date ? format(project.due_date.toDate(), "MMM dd, yyyy") : "No due date"}
+                    </span>
                   </div>
-                </div>
-
-                {project.milestones && project.milestones.length > 0 && (
-                  <div className="mt-6 pt-6 border-t">
-                    <h4 className="font-medium text-gray-900 mb-3">Milestones</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {project.milestones.map((milestone, index) => (
-                        <div key={index} className="bg-gray-50 p-3 rounded-lg">
-                          <div className="flex justify-between items-start">
-                            <h5 className="font-medium text-sm">{milestone.title}</h5>
-                            <Badge 
-                              variant="outline" 
-                              className={milestone.status === 'Completed' ? 'bg-green-100 text-green-800' : 
-                                        milestone.status === 'In Progress' ? 'bg-blue-100 text-blue-800' : 
-                                        'bg-gray-100 text-gray-800'}
-                            >
-                              {milestone.status}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-gray-600 mt-1">
-                            Due: {format(milestone.due_date.toDate(), "MMM dd, yyyy")}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-6 pt-6 border-t">
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
-                      View Details
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      Add Task
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      Add Milestone
-                    </Button>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Created:</span>
+                    <span className="text-sm">{project.createdAt?.toDate().toLocaleDateString()}</span>
                   </div>
                 </div>
               </CardContent>
@@ -602,10 +577,10 @@ const EnhancedProjectsModule = () => {
           ))}
           
           {filteredProjects.length === 0 && (
-            <div className="text-center py-12">
+            <div className="col-span-full text-center py-12">
               <p className="text-gray-500 text-lg">No projects found</p>
               <p className="text-gray-400 mt-2">
-                {searchTerm || statusFilter !== "all" || leadFilter !== "all"
+                {searchTerm || statusFilter !== "all" || ownerFilter !== "all" || leadFilter !== "all"
                   ? "Try adjusting your filters"
                   : "Projects are automatically created from completed deals"
                 }

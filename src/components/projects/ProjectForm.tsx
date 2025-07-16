@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,14 @@ interface ProjectFormProps {
   onSuccess: () => void;
   onCancel: () => void;
 }
+
+const PROJECT_OWNERS = [
+  "Arpit",
+  "Sarvjeet", 
+  "Rahul",
+  "Rohit",
+  "Praveen"
+];
 
 const ProjectForm: React.FC<ProjectFormProps> = ({ onSuccess, onCancel }) => {
   const { user } = useAuth();
@@ -70,10 +79,11 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ onSuccess, onCancel }) => {
       const projectData = {
         title: data.project_name,
         linked_deal_id: data.deal_id,
-        contact_id: data.lead_id, // Adding the missing contact_id
+        contact_id: data.lead_id,
         company_name: selectedDeal?.company_name || '',
         lead_id: data.lead_id,
         lead_name: selectedContact?.name || '',
+        project_owner: data.project_owner,
         status: 'Active' as const,
         due_date: data.due_date ? Timestamp.fromDate(new Date(data.due_date)) : undefined,
         assigned_team: [user.user_id],
@@ -141,6 +151,22 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ onSuccess, onCancel }) => {
             {contacts.map((contact) => (
               <SelectItem key={contact.id} value={contact.id!}>
                 {contact.name} - {contact.company_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label htmlFor="project_owner">Project Owner</Label>
+        <Select onValueChange={(value) => setValue("project_owner", value)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select project owner" />
+          </SelectTrigger>
+          <SelectContent>
+            {PROJECT_OWNERS.map((owner) => (
+              <SelectItem key={owner} value={owner}>
+                {owner}
               </SelectItem>
             ))}
           </SelectContent>
