@@ -70,11 +70,12 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ onSuccess, onCancel }) => {
       const projectData = {
         title: data.project_name,
         linked_deal_id: data.deal_id,
+        contact_id: data.lead_id, // Adding the missing contact_id
         company_name: selectedDeal?.company_name || '',
         lead_id: data.lead_id,
         lead_name: selectedContact?.name || '',
         status: 'Active' as const,
-        due_date: data.due_date ? new Date(data.due_date) : undefined,
+        due_date: data.due_date ? Timestamp.fromDate(new Date(data.due_date)) : undefined,
         assigned_team: [user.user_id],
         milestones: [],
         userRef: user.user_id

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import {
 import { taskService, dealService, projectService, type Deal, type Project } from "@/services/firestoreService";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { Timestamp } from "firebase/firestore";
 
 interface TaskFormProps {
   onSuccess: () => void;
@@ -71,7 +71,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSuccess, onCancel }) => {
         description: data.description || '',
         status: 'Pending' as const,
         priority: data.priority,
-        due_date: data.due_date ? new Date(data.due_date) : new Date(),
+        due_date: data.due_date ? Timestamp.fromDate(new Date(data.due_date)) : Timestamp.now(),
         linked_deal_id: data.linked_deal_id || '',
         linked_project_id: data.linked_project_id || '',
         assigned_to: user.user_id,

@@ -85,8 +85,8 @@ const EnhancedDealsModule = () => {
     return {
       total: deals.length,
       totalValue: deals.reduce((sum, deal) => sum + (deal.value || 0), 0),
-      qualified: deals.filter(d => d.deal_stage === 'Qualified').length,
-      won: deals.filter(d => d.deal_stage === 'Closed Won').length,
+      qualified: deals.filter(d => d.deal_stage === 'Proposal Sent').length,
+      won: deals.filter(d => d.deal_stage === 'Won').length,
     };
   };
 

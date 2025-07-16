@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,7 @@ import {
 import { dealService, contactService, type Contact } from "@/services/firestoreService";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { Timestamp } from "firebase/firestore";
 
 interface DealFormProps {
   onSuccess: () => void;
@@ -66,7 +66,10 @@ const DealForm: React.FC<DealFormProps> = ({ onSuccess, onCancel }) => {
         deal_stage: data.deal_stage,
         contact_id: data.contact_id,
         company_id: selectedContact?.company_name || '',
+        company_name: selectedContact?.company_name || '',
         value: parseFloat(data.value) || 0,
+        start_date: Timestamp.now(),
+        end_date: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)), // 30 days from now
         userRef: user.user_id
       };
 
@@ -112,11 +115,10 @@ const DealForm: React.FC<DealFormProps> = ({ onSuccess, onCancel }) => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="Lead">Lead</SelectItem>
-            <SelectItem value="Qualified">Qualified</SelectItem>
-            <SelectItem value="Proposal">Proposal</SelectItem>
+            <SelectItem value="Proposal Sent">Proposal Sent</SelectItem>
             <SelectItem value="Negotiation">Negotiation</SelectItem>
-            <SelectItem value="Closed Won">Closed Won</SelectItem>
-            <SelectItem value="Closed Lost">Closed Lost</SelectItem>
+            <SelectItem value="Won">Won</SelectItem>
+            <SelectItem value="Lost">Lost</SelectItem>
           </SelectContent>
         </Select>
       </div>
