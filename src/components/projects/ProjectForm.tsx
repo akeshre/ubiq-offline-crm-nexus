@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,7 @@ import {
 import { projectService, dealService, contactService, type Deal, type Contact } from "@/services/firestoreService";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { Timestamp } from "firebase/firestore";
 
 interface ProjectFormProps {
   onSuccess: () => void;
