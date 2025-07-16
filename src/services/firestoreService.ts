@@ -1,3 +1,4 @@
+
 import { 
   collection, 
   addDoc, 
@@ -13,117 +14,227 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
-// Contact Types
+// Enhanced Contact Types
 export interface Contact {
   id?: string;
   name: string;
   email: string;
   phone: string;
-  company: string;
+  company_name: string;
+  company_id?: string;
   designation?: string;
   industry?: string;
-  source?: string;
-  assignedTo?: string;
+  source?: 'Website' | 'Referral' | 'Outreach' | 'Cold Call' | 'Inbound';
+  status: 'Prospect' | 'Negotiation' | 'Won' | 'Lost';
+  tags: string[];
+  last_activity?: Timestamp;
+  assigned_to?: string;
   notes?: string;
-  status: 'Prospect' | 'Win' | 'Lose';
-  userRef: string; // Reference to the user who created this contact
+  status_timeline: Array<{
+    status: 'Prospect' | 'Negotiation' | 'Won' | 'Lost';
+    changed_at: Timestamp;
+    changed_by?: string;
+  }>;
+  userRef: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
 
 export interface Deal {
   id?: string;
-  contactRef: string;
-  dealName: string;
+  contact_id: string;
+  company_id?: string;
+  company_name: string;
+  deal_name: string;
+  deal_stage: 'Lead' | 'Proposal Sent' | 'Negotiation' | 'Won' | 'Lost';
   value: number;
-  status: 'Ongoing' | 'Completed';
-  startDate: Timestamp;
-  endDate: Timestamp;
-  userRef: string; // Reference to the user who created this deal
+  assigned_to?: string;
+  tasks_count: number;
+  linked_project_id?: string;
+  start_date: Timestamp;
+  end_date: Timestamp;
+  userRef: string;
   createdAt: Timestamp;
 }
 
 export interface Project {
   id?: string;
-  dealRef: string;
+  linked_deal_id: string;
+  contact_id: string;
+  company_id?: string;
+  company_name: string;
   title: string;
-  status: 'Active' | 'Completed';
-  userRef: string; // Reference to the user who created this project
+  status: 'Active' | 'Completed' | 'Paused';
+  milestones: Array<{
+    title: string;
+    due_date: Timestamp;
+    status: 'Pending' | 'In Progress' | 'Completed';
+  }>;
+  assigned_team: string[];
+  timeline?: any;
+  time_tracking?: Array<{
+    user_id: string;
+    hours: number;
+    task_id?: string;
+    date: Timestamp;
+  }>;
+  userRef: string;
   createdAt: Timestamp;
 }
 
 export interface Task {
   id?: string;
-  projectRef?: string;
-  dealRef?: string;
+  linked_deal_id?: string;
+  linked_project_id?: string;
+  linked_contact_id?: string;
+  linked_company_id?: string;
   taskTitle: string;
   description: string;
-  dueDate: Timestamp;
-  status: 'Pending' | 'In Progress' | 'Done';
-  userRef: string; // Reference to the user who created this task
+  priority: 'High' | 'Medium' | 'Low';
+  status: 'Pending' | 'In Progress' | 'Completed' | 'Overdue';
+  assigned_to?: string;
+  due_date: Timestamp;
+  completed_at?: Timestamp;
+  userRef: string;
+  createdAt: Timestamp;
+}
+
+export interface Company {
+  id?: string;
+  name: string;
+  industry?: string;
+  size?: string;
+  website?: string;
+  address?: string;
+  userRef: string;
   createdAt: Timestamp;
 }
 
 // Contact Services
 export const contactService = {
-  async create(contactData: Omit<Contact, 'id' | 'createdAt' | 'updatedAt'>) {
-    console.log('🔥 Creating contact with data:', contactData);
+  async create(contactData: Omit<Contact, 'id' | 'createdAt' | 'updatedAt' | 'status_timeline'>) {
+    console.log('🔥 Creating enhanced contact with data:', contactData);
     try {
-      const docRef = await addDoc(collection(db, 'contacts'), {
+      const enhancedData = {
         ...contactData,
+        status_timeline: [{
+          status: contactData.status,
+          changed_at: Timestamp.now(),
+          changed_by: contactData.userRef
+        }],
+        last_activity: Timestamp.now(),
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
-      });
-      console.log('✅ Contact created successfully with ID:', docRef.id);
+      };
+
+      const docRef = await addDoc(collection(db, 'contacts'), enhancedData);
+      console.log('✅ Enhanced contact created successfully with ID:', docRef.id);
       
-      // If status is Win, automatically create a deal
-      if (contactData.status === 'Win') {
-        console.log('🎯 Status is Win - moving to Deals');
-        await dealService.createFromContact(docRef.id, contactData);
+      // Auto-create deal if status is Won or Negotiation
+      if (contactData.status === 'Won' || contactData.status === 'Negotiation') {
+        console.log('🎯 Auto-creating deal for contact status:', contactData.status);
+        await dealService.createFromContact(docRef.id, enhancedData);
       }
       
       return docRef.id;
     } catch (error) {
-      console.error('❌ Error creating contact:', error);
+      console.error('❌ Error creating enhanced contact:', error);
       throw error;
     }
   },
 
-  async getAll(userRef: string) {
-    console.log('🔍 Fetching all contacts for user:', userRef);
+  async updateStatus(contactId: string, newStatus: Contact['status'], userRef: string) {
+    console.log('🔄 Updating contact status:', contactId, 'to', newStatus);
     try {
-      const q = query(collection(db, 'contacts'), where('userRef', '==', userRef));
-      const querySnapshot = await getDocs(q);
-      const contacts = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Contact[];
-      console.log('✅ Fetched contacts:', contacts.length, 'records for user:', userRef);
-      console.log('📊 Contacts data:', contacts);
-      return contacts;
+      const contactRef = doc(db, 'contacts', contactId);
+      const contactDoc = await getDoc(contactRef);
+      
+      if (!contactDoc.exists()) {
+        throw new Error('Contact not found');
+      }
+
+      const currentData = contactDoc.data() as Contact;
+      const updatedTimeline = [
+        ...currentData.status_timeline,
+        {
+          status: newStatus,
+          changed_at: Timestamp.now(),
+          changed_by: userRef
+        }
+      ];
+
+      await updateDoc(contactRef, {
+        status: newStatus,
+        status_timeline: updatedTimeline,
+        last_activity: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      });
+
+      // Handle status change effects
+      if (newStatus === 'Won') {
+        console.log('🎯 Contact won - creating deal and project');
+        await dealService.createFromContact(contactId, { ...currentData, status: newStatus });
+      } else if (newStatus === 'Lost') {
+        console.log('❌ Contact lost - hiding associated deals and projects');
+        // Note: We'll implement visibility rules in the UI layer
+      }
+
+      console.log('✅ Contact status updated successfully');
     } catch (error) {
-      console.error('❌ Error fetching contacts:', error);
+      console.error('❌ Error updating contact status:', error);
       throw error;
     }
   },
 
-  async getWinContacts(userRef: string) {
-    console.log('🔍 Fetching Win status contacts for user:', userRef);
+  async getAll(userRef: string, filters?: {
+    status?: Contact['status'];
+    industry?: string;
+    source?: string;
+    assigned_to?: string;
+    tags?: string[];
+    showLost?: boolean;
+  }) {
+    console.log('🔍 Fetching enhanced contacts for user:', userRef, 'with filters:', filters);
     try {
-      const q = query(
-        collection(db, 'contacts'), 
-        where('userRef', '==', userRef),
-        where('status', '==', 'Win')
-      );
+      let q = query(collection(db, 'contacts'), where('userRef', '==', userRef));
+      
+      if (filters?.status) {
+        q = query(q, where('status', '==', filters.status));
+      }
+      
+      if (filters?.industry) {
+        q = query(q, where('industry', '==', filters.industry));
+      }
+
+      if (filters?.source) {
+        q = query(q, where('source', '==', filters.source));
+      }
+
+      if (filters?.assigned_to) {
+        q = query(q, where('assigned_to', '==', filters.assigned_to));
+      }
+
       const querySnapshot = await getDocs(q);
-      const contacts = querySnapshot.docs.map(doc => ({
+      let contacts = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Contact[];
-      console.log('✅ Fetched Win contacts:', contacts.length, 'records for user:', userRef);
+
+      // Apply client-side filters for complex queries
+      if (filters?.tags && filters.tags.length > 0) {
+        contacts = contacts.filter(contact => 
+          filters.tags!.some(tag => contact.tags?.includes(tag))
+        );
+      }
+
+      if (!filters?.showLost) {
+        contacts = contacts.filter(contact => contact.status !== 'Lost');
+      }
+
+      console.log('✅ Fetched enhanced contacts:', contacts.length, 'records');
       return contacts;
     } catch (error) {
-      console.error('❌ Error fetching Win contacts:', error);
+      console.error('❌ Error fetching enhanced contacts:', error);
       throw error;
     }
   }
@@ -131,24 +242,27 @@ export const contactService = {
 
 // Deal Services
 export const dealService = {
-  async create(dealData: Omit<Deal, 'id' | 'createdAt'>) {
-    console.log('🔥 Creating deal with data:', dealData);
+  async create(dealData: Omit<Deal, 'id' | 'createdAt' | 'tasks_count'>) {
+    console.log('🔥 Creating enhanced deal with data:', dealData);
     try {
-      const docRef = await addDoc(collection(db, 'deals'), {
+      const enhancedData = {
         ...dealData,
+        tasks_count: 0,
         createdAt: Timestamp.now()
-      });
-      console.log('✅ Deal created successfully with ID:', docRef.id);
+      };
+
+      const docRef = await addDoc(collection(db, 'deals'), enhancedData);
+      console.log('✅ Enhanced deal created successfully with ID:', docRef.id);
       
-      // If deal is completed, create a project
-      if (dealData.status === 'Completed') {
-        console.log('🚀 Deal completed - creating project');
-        await projectService.createFromDeal(docRef.id, dealData);
+      // Auto-create project if deal is Won
+      if (dealData.deal_stage === 'Won') {
+        console.log('🚀 Deal won - creating project');
+        await projectService.createFromDeal(docRef.id, enhancedData);
       }
       
       return docRef.id;
     } catch (error) {
-      console.error('❌ Error creating deal:', error);
+      console.error('❌ Error creating enhanced deal:', error);
       throw error;
     }
   },
@@ -156,52 +270,47 @@ export const dealService = {
   async createFromContact(contactId: string, contactData: any) {
     console.log('🔄 Auto-creating deal from contact:', contactId);
     const dealData = {
-      contactRef: contactId,
-      dealName: `Deal for ${contactData.company}`,
+      contact_id: contactId,
+      company_name: contactData.company_name,
+      deal_name: `Deal for ${contactData.company_name}`,
+      deal_stage: contactData.status === 'Won' ? 'Won' as const : 'Lead' as const,
       value: 50000,
-      status: 'Completed' as const,
-      startDate: Timestamp.now(),
-      endDate: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
+      start_date: Timestamp.now(),
+      end_date: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
       userRef: contactData.userRef
     };
     return await this.create(dealData);
   },
 
-  async getAll(userRef: string) {
-    console.log('🔍 Fetching all deals for user:', userRef);
+  async getAll(userRef: string, filters?: {
+    deal_stage?: Deal['deal_stage'];
+    showLost?: boolean;
+  }) {
+    console.log('🔍 Fetching enhanced deals for user:', userRef, 'with filters:', filters);
     try {
-      const q = query(collection(db, 'deals'), where('userRef', '==', userRef));
-      const querySnapshot = await getDocs(q);
-      const deals = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Deal[];
-      console.log('✅ Fetched deals:', deals.length, 'records for user:', userRef);
-      console.log('📊 Deals data:', deals);
-      return deals;
-    } catch (error) {
-      console.error('❌ Error fetching deals:', error);
-      throw error;
-    }
-  },
+      let q = query(collection(db, 'deals'), where('userRef', '==', userRef));
+      
+      if (filters?.deal_stage) {
+        q = query(q, where('deal_stage', '==', filters.deal_stage));
+      }
 
-  async getCompletedDeals(userRef: string) {
-    console.log('🔍 Fetching completed deals for user:', userRef);
-    try {
-      const q = query(
-        collection(db, 'deals'), 
-        where('userRef', '==', userRef),
-        where('status', '==', 'Completed')
-      );
       const querySnapshot = await getDocs(q);
-      const deals = querySnapshot.docs.map(doc => ({
+      let deals = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Deal[];
-      console.log('✅ Fetched completed deals:', deals.length, 'records for user:', userRef);
+
+      // Filter out deals linked to lost contacts unless explicitly requested
+      if (!filters?.showLost) {
+        const contacts = await contactService.getAll(userRef, { showLost: true });
+        const lostContactIds = contacts.filter(c => c.status === 'Lost').map(c => c.id);
+        deals = deals.filter(deal => !lostContactIds.includes(deal.contact_id));
+      }
+
+      console.log('✅ Fetched enhanced deals:', deals.length, 'records');
       return deals;
     } catch (error) {
-      console.error('❌ Error fetching completed deals:', error);
+      console.error('❌ Error fetching enhanced deals:', error);
       throw error;
     }
   }
@@ -210,16 +319,16 @@ export const dealService = {
 // Project Services
 export const projectService = {
   async create(projectData: Omit<Project, 'id' | 'createdAt'>) {
-    console.log('🔥 Creating project with data:', projectData);
+    console.log('🔥 Creating enhanced project with data:', projectData);
     try {
       const docRef = await addDoc(collection(db, 'projects'), {
         ...projectData,
         createdAt: Timestamp.now()
       });
-      console.log('✅ Project created successfully with ID:', docRef.id);
+      console.log('✅ Enhanced project created successfully with ID:', docRef.id);
       return docRef.id;
     } catch (error) {
-      console.error('❌ Error creating project:', error);
+      console.error('❌ Error creating enhanced project:', error);
       throw error;
     }
   },
@@ -227,33 +336,47 @@ export const projectService = {
   async createFromDeal(dealId: string, dealData: any) {
     console.log('🔄 Auto-creating project from deal:', dealId);
     const projectData = {
-      dealRef: dealId,
-      title: `Project: ${dealData.dealName}`,
+      linked_deal_id: dealId,
+      contact_id: dealData.contact_id,
+      company_name: dealData.company_name,
+      title: `Project: ${dealData.deal_name}`,
       status: 'Active' as const,
+      milestones: [],
+      assigned_team: [dealData.userRef],
       userRef: dealData.userRef
     };
     return await this.create(projectData);
   },
 
-  async getAll(userRef: string) {
-    console.log('🔍 Fetching all projects for user:', userRef);
+  async getAll(userRef: string, filters?: {
+    status?: Project['status'];
+    showLost?: boolean;
+  }) {
+    console.log('🔍 Fetching enhanced projects for user:', userRef, 'with filters:', filters);
     try {
-      const q = query(collection(db, 'projects'), where('userRef', '==', userRef));
+      let q = query(collection(db, 'projects'), where('userRef', '==', userRef));
+      
+      if (filters?.status) {
+        q = query(q, where('status', '==', filters.status));
+      }
+
       const querySnapshot = await getDocs(q);
-      const projects = querySnapshot.docs.map(doc => ({
+      let projects = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Project[];
-      console.log('✅ Fetched projects:', projects.length, 'records for user:', userRef);
-      console.log('📊 Projects data:', projects);
-      
-      const activeCounts = projects.filter(p => p.status === 'Active').length;
-      const completedCounts = projects.filter(p => p.status === 'Completed').length;
-      console.log('📈 Project counts - Active:', activeCounts, 'Completed:', completedCounts);
-      
+
+      // Filter out projects linked to lost contacts unless explicitly requested
+      if (!filters?.showLost) {
+        const contacts = await contactService.getAll(userRef, { showLost: true });
+        const lostContactIds = contacts.filter(c => c.status === 'Lost').map(c => c.id);
+        projects = projects.filter(project => !lostContactIds.includes(project.contact_id));
+      }
+
+      console.log('✅ Fetched enhanced projects:', projects.length, 'records');
       return projects;
     } catch (error) {
-      console.error('❌ Error fetching projects:', error);
+      console.error('❌ Error fetching enhanced projects:', error);
       throw error;
     }
   }
@@ -262,35 +385,89 @@ export const projectService = {
 // Task Services
 export const taskService = {
   async create(taskData: Omit<Task, 'id' | 'createdAt'>) {
-    console.log('🔥 Creating task with data:', taskData);
-    console.log('🔗 Linked to project/deal:', taskData.projectRef || taskData.dealRef);
+    console.log('🔥 Creating enhanced task with data:', taskData);
     try {
       const docRef = await addDoc(collection(db, 'tasks'), {
         ...taskData,
         createdAt: Timestamp.now()
       });
-      console.log('✅ Task created successfully with ID:', docRef.id);
+      console.log('✅ Enhanced task created successfully with ID:', docRef.id);
+      
+      // Update tasks count if linked to deal
+      if (taskData.linked_deal_id) {
+        await this.updateDealTasksCount(taskData.linked_deal_id);
+      }
+      
       return docRef.id;
     } catch (error) {
-      console.error('❌ Error creating task:', error);
+      console.error('❌ Error creating enhanced task:', error);
       throw error;
     }
   },
 
-  async getAll(userRef: string) {
-    console.log('🔍 Fetching all tasks for user:', userRef);
+  async updateDealTasksCount(dealId: string) {
     try {
-      const q = query(collection(db, 'tasks'), where('userRef', '==', userRef));
+      const tasksQuery = query(
+        collection(db, 'tasks'),
+        where('linked_deal_id', '==', dealId)
+      );
+      const tasksSnapshot = await getDocs(tasksQuery);
+      const tasksCount = tasksSnapshot.size;
+      
+      await updateDoc(doc(db, 'deals', dealId), { tasks_count: tasksCount });
+      console.log('✅ Updated deal tasks count:', dealId, tasksCount);
+    } catch (error) {
+      console.error('❌ Error updating deal tasks count:', error);
+    }
+  },
+
+  async getAll(userRef: string, filters?: {
+    status?: Task['status'];
+    priority?: Task['priority'];
+    overdue?: boolean;
+    assigned_to?: string;
+  }) {
+    console.log('🔍 Fetching enhanced tasks for user:', userRef, 'with filters:', filters);
+    try {
+      let q = query(collection(db, 'tasks'), where('userRef', '==', userRef));
+      
+      if (filters?.status) {
+        q = query(q, where('status', '==', filters.status));
+      }
+      
+      if (filters?.priority) {
+        q = query(q, where('priority', '==', filters.priority));
+      }
+
+      if (filters?.assigned_to) {
+        q = query(q, where('assigned_to', '==', filters.assigned_to));
+      }
+
       const querySnapshot = await getDocs(q);
-      const tasks = querySnapshot.docs.map(doc => ({
+      let tasks = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Task[];
-      console.log('✅ Fetched tasks:', tasks.length, 'records for user:', userRef);
-      console.log('📊 Tasks data:', tasks);
+
+      // Check for overdue tasks and update status
+      const now = new Date();
+      tasks = tasks.map(task => {
+        const isOverdue = task.due_date.toDate() < now && task.status !== 'Completed';
+        if (isOverdue && task.status !== 'Overdue') {
+          this.updateStatus(task.id!, 'Overdue');
+          return { ...task, status: 'Overdue' as const };
+        }
+        return task;
+      });
+
+      if (filters?.overdue) {
+        tasks = tasks.filter(task => task.status === 'Overdue');
+      }
+
+      console.log('✅ Fetched enhanced tasks:', tasks.length, 'records');
       return tasks;
     } catch (error) {
-      console.error('❌ Error fetching tasks:', error);
+      console.error('❌ Error fetching enhanced tasks:', error);
       throw error;
     }
   },
@@ -298,7 +475,12 @@ export const taskService = {
   async updateStatus(taskId: string, status: Task['status']) {
     console.log('🔄 Updating task status:', taskId, 'to', status);
     try {
-      await updateDoc(doc(db, 'tasks', taskId), { status });
+      const updateData: any = { status };
+      if (status === 'Completed') {
+        updateData.completed_at = Timestamp.now();
+      }
+      
+      await updateDoc(doc(db, 'tasks', taskId), updateData);
       console.log('✅ Task status updated successfully');
     } catch (error) {
       console.error('❌ Error updating task status:', error);
@@ -307,75 +489,78 @@ export const taskService = {
   }
 };
 
-// Analytics Services
+// Enhanced Analytics Services
 export const analyticsService = {
-  async getContactsAnalytics(userRef: string) {
-    console.log('📊 Fetching contacts analytics for user:', userRef);
+  async getAdvancedAnalytics(userRef: string) {
+    console.log('📊 Fetching advanced analytics for user:', userRef);
     try {
-      const contacts = await contactService.getAll(userRef);
-      const analytics = {
-        prospect: contacts.filter(c => c.status === 'Prospect').length,
-        win: contacts.filter(c => c.status === 'Win').length,
-        lose: contacts.filter(c => c.status === 'Lose').length,
-        total: contacts.length
-      };
-      console.log('📈 Contacts analytics:', analytics);
-      return analytics;
-    } catch (error) {
-      console.error('❌ Error fetching contacts analytics:', error);
-      throw error;
-    }
-  },
+      const [contacts, deals, projects, tasks] = await Promise.all([
+        contactService.getAll(userRef, { showLost: true }),
+        dealService.getAll(userRef, { showLost: true }),
+        projectService.getAll(userRef, { showLost: true }),
+        taskService.getAll(userRef)
+      ]);
 
-  async getDealsAnalytics(userRef: string) {
-    console.log('📊 Fetching deals analytics for user:', userRef);
-    try {
-      const deals = await dealService.getAll(userRef);
-      const analytics = {
-        ongoing: deals.filter(d => d.status === 'Ongoing').length,
-        completed: deals.filter(d => d.status === 'Completed').length,
-        total: deals.length,
-        totalValue: deals.reduce((sum, deal) => sum + deal.value, 0)
-      };
-      console.log('📈 Deals analytics:', analytics);
-      return analytics;
-    } catch (error) {
-      console.error('❌ Error fetching deals analytics:', error);
-      throw error;
-    }
-  },
+      // Pipeline metrics
+      const pipelineValue = deals.reduce((sum, deal) => sum + deal.value, 0);
+      const wonDeals = deals.filter(d => d.deal_stage === 'Won');
+      const winRate = deals.length > 0 ? (wonDeals.length / deals.length) * 100 : 0;
+      const avgDealSize = deals.length > 0 ? pipelineValue / deals.length : 0;
 
-  async getProjectsAnalytics(userRef: string) {
-    console.log('📊 Fetching projects analytics for user:', userRef);
-    try {
-      const projects = await projectService.getAll(userRef);
-      const analytics = {
-        active: projects.filter(p => p.status === 'Active').length,
-        completed: projects.filter(p => p.status === 'Completed').length,
-        total: projects.length
-      };
-      console.log('📈 Projects analytics:', analytics);
-      return analytics;
-    } catch (error) {
-      console.error('❌ Error fetching projects analytics:', error);
-      throw error;
-    }
-  },
+      // Conversion funnel
+      const prospectContacts = contacts.filter(c => c.status === 'Prospect').length;
+      const wonContacts = contacts.filter(c => c.status === 'Won').length;
+      const negotiationContacts = contacts.filter(c => c.status === 'Negotiation').length;
+      
+      // Source analysis
+      const sourceAnalysis = contacts.reduce((acc, contact) => {
+        const source = contact.source || 'Unknown';
+        if (!acc[source]) {
+          acc[source] = { count: 0, value: 0 };
+        }
+        acc[source].count++;
+        
+        // Add deal value for this contact
+        const contactDeals = deals.filter(d => d.contact_id === contact.id);
+        acc[source].value += contactDeals.reduce((sum, deal) => sum + deal.value, 0);
+        
+        return acc;
+      }, {} as Record<string, { count: number; value: number }>);
 
-  async getTasksAnalytics(userRef: string) {
-    console.log('📊 Fetching tasks analytics for user:', userRef);
-    try {
-      const tasks = await taskService.getAll(userRef);
+      // Industry breakdown
+      const industryBreakdown = contacts.reduce((acc, contact) => {
+        const industry = contact.industry || 'Unknown';
+        acc[industry] = (acc[industry] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
       const analytics = {
-        pending: tasks.filter(t => t.status === 'Pending').length,
-        inProgress: tasks.filter(t => t.status === 'In Progress').length,
-        done: tasks.filter(t => t.status === 'Done').length,
-        total: tasks.length
+        pipeline: {
+          totalValue: pipelineValue,
+          winRate: Math.round(winRate),
+          avgDealSize: Math.round(avgDealSize),
+          activeProjects: projects.filter(p => p.status === 'Active').length
+        },
+        conversion: {
+          prospects: prospectContacts,
+          negotiations: negotiationContacts,
+          won: wonContacts,
+          conversionRate: prospectContacts > 0 ? Math.round((wonContacts / prospectContacts) * 100) : 0
+        },
+        sources: sourceAnalysis,
+        industries: industryBreakdown,
+        tasks: {
+          total: tasks.length,
+          completed: tasks.filter(t => t.status === 'Completed').length,
+          overdue: tasks.filter(t => t.status === 'Overdue').length,
+          efficiency: tasks.length > 0 ? Math.round((tasks.filter(t => t.status === 'Completed').length / tasks.length) * 100) : 0
+        }
       };
-      console.log('📈 Tasks analytics:', analytics);
+
+      console.log('📈 Advanced analytics calculated:', analytics);
       return analytics;
     } catch (error) {
-      console.error('❌ Error fetching tasks analytics:', error);
+      console.error('❌ Error fetching advanced analytics:', error);
       throw error;
     }
   }
