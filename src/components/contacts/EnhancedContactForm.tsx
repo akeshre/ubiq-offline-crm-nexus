@@ -25,9 +25,10 @@ import { useToast } from "@/hooks/use-toast";
 
 interface EnhancedContactFormProps {
   onSuccess: () => void;
+  onCancel?: () => void;
 }
 
-const EnhancedContactForm: React.FC<EnhancedContactFormProps> = ({ onSuccess }) => {
+const EnhancedContactForm: React.FC<EnhancedContactFormProps> = ({ onSuccess, onCancel }) => {
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -296,7 +297,14 @@ const EnhancedContactForm: React.FC<EnhancedContactFormProps> = ({ onSuccess }) 
           )}
         />
         
-        <Button type="submit" className="w-full">Add Enhanced Contact</Button>
+        <div className="flex gap-2 pt-4">
+          <Button type="submit" className="flex-1">Add Enhanced Contact</Button>
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
+              Cancel
+            </Button>
+          )}
+        </div>
       </form>
     </Form>
   );
