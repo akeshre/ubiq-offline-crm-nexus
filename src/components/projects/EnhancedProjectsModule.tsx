@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
+import {
   Table,
   TableBody,
   TableCell,
@@ -26,70 +26,51 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { projectService, dealService, contactService, type Project, type Deal, type Contact } from "@/services/firestoreService";
-import { Plus, Calendar, Users, Search, Filter, Trash2, Building, Target, User, Grid, List } from "lucide-react";
+import { projectService, type Project } from "@/services/firestoreService";
+import { Plus, Briefcase, Clock, CheckCircle, Users, Search, Filter, Grid, List, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
-import { useNavigate } from "react-router-dom";
 import ProjectForm from "./ProjectForm";
-
-const PROJECT_OWNERS = [
-  "Arpit",
-  "Sarvjeet", 
-  "Rahul",
-  "Rohit",
-  "Praveen"
-];
+import ProjectOwnerEdit from "./ProjectOwnerEdit";
 
 const EnhancedProjectsModule = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
-  const [deals, setDeals] = useState<Deal[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
-  const [leadFilter, setLeadFilter] = useState<string>("all");
-  const [groupByLead, setGroupByLead] = useState(false);
+  const [groupBy, setGroupBy] = useState<string>("none");
   const [showLost, setShowLost] = useState(false);
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const { toast } = useToast();
   const { user } = useAuth();
-  const navigate = useNavigate();
 
   useEffect(() => {
     if (user) {
-      loadData();
+      loadProjects();
     }
   }, [user, showLost]);
 
   useEffect(() => {
     applyFilters();
-  }, [projects, searchTerm, statusFilter, ownerFilter, leadFilter]);
+  }, [projects, searchTerm, statusFilter, ownerFilter]);
 
-  const loadData = async () => {
+  const loadProjects = async () => {
     if (!user) return;
     
-    console.log('🔄 Loading projects data...');
+    console.log('🔄 Loading projects in EnhancedProjectsModule...');
     try {
       setLoading(true);
-      const [fetchedProjects, fetchedDeals, fetchedContacts] = await Promise.all([
-        projectService.getAll(user.user_id, { showLost }),
-        dealService.getAll(user.user_id, { showLost: true }),
-        contactService.getAll(user.user_id, { showLost: true })
-      ]);
-      
+      const fetchedProjects = await projectService.getAll(user.user_id, { showLost });
       setProjects(fetchedProjects);
-      setDeals(fetchedDeals);
-      setContacts(fetchedContacts);
     } catch (error) {
-      console.error('❌ Failed to load data:', error);
+      console.error('❌ Failed to load projects:', error);
       toast({
         title: "Error",
-        description: "Failed to load projects data",
+        description: "Failed to load projects",
         variant: "destructive"
       });
     } finally {
@@ -104,8 +85,7 @@ const EnhancedProjectsModule = () => {
       filtered = filtered.filter(project =>
         project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         project.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        project.lead_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        project.project_owner?.toLowerCase().includes(searchTerm.toLowerCase())
+        project.lead_name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -117,42 +97,7 @@ const EnhancedProjectsModule = () => {
       filtered = filtered.filter(project => project.project_owner === ownerFilter);
     }
 
-    if (leadFilter !== "all") {
-      filtered = filtered.filter(project => project.lead_id === leadFilter);
-    }
-
     setFilteredProjects(filtered);
-  };
-
-  const handleDelete = async (projectId: string, projectTitle: string) => {
-    if (!confirm(`Are you sure you want to delete "${projectTitle}"? This will also remove project references from linked tasks.`)) {
-      return;
-    }
-
-    try {
-      await projectService.delete(projectId);
-      await loadData();
-      toast({
-        title: "Project deleted",
-        description: `${projectTitle} has been removed and task references updated.`,
-      });
-    } catch (error) {
-      console.error('❌ Error deleting project:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete project.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleLeadClick = (leadId: string) => {
-    navigate(`/leads/${leadId}`);
-  };
-
-  const getDealName = (dealId: string) => {
-    const deal = deals.find(d => d.id === dealId);
-    return deal ? deal.deal_name : "Unknown Deal";
   };
 
   const getStatusColor = (status: string) => {
@@ -164,29 +109,6 @@ const EnhancedProjectsModule = () => {
     }
   };
 
-  const getUniqueLeads = () => {
-    const leads = projects.map(p => ({ id: p.lead_id, name: p.lead_name }));
-    const uniqueLeads = leads.filter((lead, index, self) => 
-      index === self.findIndex(l => l.id === lead.id)
-    );
-    return uniqueLeads;
-  };
-
-  const getGroupedProjects = () => {
-    if (!groupByLead) return { ungrouped: filteredProjects };
-    
-    const grouped: { [key: string]: Project[] } = {};
-    filteredProjects.forEach(project => {
-      const leadKey = project.lead_name || 'Unassigned';
-      if (!grouped[leadKey]) {
-        grouped[leadKey] = [];
-      }
-      grouped[leadKey].push(project);
-    });
-    
-    return grouped;
-  };
-
   const getStats = () => {
     return {
       total: projects.length,
@@ -196,8 +118,227 @@ const EnhancedProjectsModule = () => {
     };
   };
 
+  const getUniqueOwners = () => {
+    const owners = projects.map(p => p.project_owner).filter(Boolean);
+    return [...new Set(owners)];
+  };
+
+  const groupProjectsByLead = () => {
+    const grouped = filteredProjects.reduce((acc, project) => {
+      const leadName = project.lead_name || 'Unknown Lead';
+      if (!acc[leadName]) {
+        acc[leadName] = [];
+      }
+      acc[leadName].push(project);
+      return acc;
+    }, {} as Record<string, Project[]>);
+
+    return Object.entries(grouped).map(([leadName, projects]) => ({
+      leadName,
+      projects,
+      count: projects.length
+    }));
+  };
+
   const stats = getStats();
-  const groupedProjects = getGroupedProjects();
+
+  const renderCardView = () => {
+    if (groupBy === 'lead') {
+      const groupedData = groupProjectsByLead();
+      return (
+        <div className="space-y-6">
+          {groupedData.map(({ leadName, projects, count }) => (
+            <div key={leadName}>
+              <h3 className="text-lg font-semibold mb-3">
+                {leadName} ({count} Project{count !== 1 ? 's' : ''})
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {projects.map((project) => (
+                  <Card key={project.id} className="hover:shadow-lg transition-shadow">
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-lg">{project.title}</CardTitle>
+                          <p className="text-gray-600 text-sm mt-1">{project.company_name}</p>
+                        </div>
+                        <Badge className={getStatusColor(project.status)}>
+                          {project.status}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Owner:</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm">{project.project_owner || 'Not assigned'}</span>
+                            <ProjectOwnerEdit
+                              projectId={project.id!}
+                              currentOwner={project.project_owner}
+                              onSuccess={loadProjects}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Due Date:</span>
+                          <span className="text-sm">
+                            {project.due_date ? format(project.due_date.toDate(), "PPP") : "No date"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Created:</span>
+                          <span className="text-sm">{project.createdAt?.toDate().toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredProjects.map((project) => (
+          <Card key={project.id} className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="text-lg">{project.title}</CardTitle>
+                  <p className="text-gray-600 text-sm mt-1">{project.company_name}</p>
+                </div>
+                <Badge className={getStatusColor(project.status)}>
+                  {project.status}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Lead:</span>
+                  <span className="text-sm font-medium">{project.lead_name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Owner:</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">{project.project_owner || 'Not assigned'}</span>
+                    <ProjectOwnerEdit
+                      projectId={project.id!}
+                      currentOwner={project.project_owner}
+                      onSuccess={loadProjects}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Due Date:</span>
+                  <span className="text-sm">
+                    {project.due_date ? format(project.due_date.toDate(), "PPP") : "No date"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Created:</span>
+                  <span className="text-sm">{project.createdAt?.toDate().toLocaleDateString()}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        
+        {filteredProjects.length === 0 && (
+          <div className="col-span-full text-center py-12">
+            <p className="text-gray-500 text-lg">No projects found</p>
+            <p className="text-gray-400 text-sm mt-2">
+              {searchTerm || statusFilter !== "all" || ownerFilter !== "all"
+                ? "Try adjusting your filters"
+                : "Add your first project to get started"
+              }
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderTableView = () => (
+    <Card>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Project Title</TableHead>
+              <TableHead>Company</TableHead>
+              <TableHead>Lead</TableHead>
+              <TableHead>Owner</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Due Date</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredProjects.map((project) => (
+              <TableRow key={project.id}>
+                <TableCell>
+                  <p className="font-medium">{project.title}</p>
+                </TableCell>
+                <TableCell>{project.company_name}</TableCell>
+                <TableCell>
+                  <button 
+                    className="text-blue-600 hover:underline"
+                    onClick={() => {
+                      // Navigate to lead detail page
+                      console.log('Navigate to lead:', project.lead_id);
+                    }}
+                  >
+                    {project.lead_name}
+                  </button>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <span>{project.project_owner || 'Not assigned'}</span>
+                    <ProjectOwnerEdit
+                      projectId={project.id!}
+                      currentOwner={project.project_owner}
+                      onSuccess={loadProjects}
+                    />
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge className={getStatusColor(project.status)}>
+                    {project.status}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  {project.due_date ? format(project.due_date.toDate(), "PPP") : "No date"}
+                </TableCell>
+                <TableCell>
+                  <Button variant="outline" size="sm">
+                    View Details
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+            
+            {filteredProjects.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-12">
+                  <p className="text-gray-500 text-lg">No projects found</p>
+                  <p className="text-gray-400 text-sm mt-2">
+                    {searchTerm || statusFilter !== "all" || ownerFilter !== "all"
+                      ? "Try adjusting your filters"
+                      : "Add your first project to get started"
+                    }
+                  </p>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="p-6">
@@ -205,25 +346,27 @@ const EnhancedProjectsModule = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
-          <p className="text-gray-600 mt-2">Manage and track project delivery with lead assignments</p>
+          <p className="text-gray-600 mt-2">Track and manage ongoing projects</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant={viewMode === 'table' ? "default" : "outline"}
-            onClick={() => setViewMode('table')}
-            size="sm"
-          >
-            <List className="w-4 h-4 mr-2" />
-            Table
-          </Button>
-          <Button
-            variant={viewMode === 'cards' ? "default" : "outline"}
-            onClick={() => setViewMode('cards')}
-            size="sm"
-          >
-            <Grid className="w-4 h-4 mr-2" />
-            Cards
-          </Button>
+        <div className="flex gap-2">
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('table')}
+            >
+              <List className="w-4 h-4 mr-2" />
+              Table
+            </Button>
+            <Button
+              variant={viewMode === 'card' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('card')}
+            >
+              <Grid className="w-4 h-4 mr-2" />
+              Cards
+            </Button>
+          </div>
           <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogTrigger asChild>
               <Button className="bg-black text-white hover:bg-gray-800">
@@ -238,7 +381,7 @@ const EnhancedProjectsModule = () => {
               <ProjectForm 
                 onSuccess={() => {
                   setIsFormOpen(false);
-                  loadData();
+                  loadProjects();
                 }}
                 onCancel={() => setIsFormOpen(false)}
               />
@@ -256,7 +399,7 @@ const EnhancedProjectsModule = () => {
                 <p className="text-sm font-medium text-gray-600">Total Projects</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
               </div>
-              <Building className="w-8 h-8 text-gray-600" />
+              <Briefcase className="w-8 h-8 text-gray-600" />
             </div>
           </CardContent>
         </Card>
@@ -265,10 +408,10 @@ const EnhancedProjectsModule = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Active Projects</p>
+                <p className="text-sm font-medium text-gray-600">Active</p>
                 <p className="text-2xl font-bold text-green-600">{stats.active}</p>
               </div>
-              <Target className="w-8 h-8 text-green-600" />
+              <Clock className="w-8 h-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
@@ -277,10 +420,10 @@ const EnhancedProjectsModule = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Completed Projects</p>
+                <p className="text-sm font-medium text-gray-600">Completed</p>
                 <p className="text-2xl font-bold text-blue-600">{stats.completed}</p>
               </div>
-              <Calendar className="w-8 h-8 text-blue-600" />
+              <CheckCircle className="w-8 h-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
@@ -289,7 +432,7 @@ const EnhancedProjectsModule = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Paused Projects</p>
+                <p className="text-sm font-medium text-gray-600">Paused</p>
                 <p className="text-2xl font-bold text-yellow-600">{stats.paused}</p>
               </div>
               <Users className="w-8 h-8 text-yellow-600" />
@@ -305,7 +448,7 @@ const EnhancedProjectsModule = () => {
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <Input
-                placeholder="Search projects, companies, leads, owners..."
+                placeholder="Search projects..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -326,41 +469,32 @@ const EnhancedProjectsModule = () => {
           </Select>
 
           <Select value={ownerFilter} onValueChange={setOwnerFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by Owner" />
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="All Owners" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Owners</SelectItem>
-              {PROJECT_OWNERS.map(owner => (
-                <SelectItem key={owner} value={owner}>{owner}</SelectItem>
+              {getUniqueOwners().map((owner) => (
+                <SelectItem key={owner} value={owner!}>
+                  {owner}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          <Select value={leadFilter} onValueChange={setLeadFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by Lead" />
+          <Select value={groupBy} onValueChange={setGroupBy}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Group by" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Leads</SelectItem>
-              {getUniqueLeads().map(lead => (
-                <SelectItem key={lead.id} value={lead.id}>{lead.name}</SelectItem>
-              ))}
+              <SelectItem value="none">No Grouping</SelectItem>
+              <SelectItem value="lead">Group by Lead</SelectItem>
             </SelectContent>
           </Select>
-
-          <Button
-            variant={groupByLead ? "default" : "outline"}
-            onClick={() => setGroupByLead(!groupByLead)}
-            className="whitespace-nowrap"
-          >
-            Group by Lead
-          </Button>
 
           <Button
             variant={showLost ? "default" : "outline"}
             onClick={() => setShowLost(!showLost)}
-            className="whitespace-nowrap"
           >
             <Filter className="w-4 h-4 mr-2" />
             {showLost ? "Hide Lost" : "Show Lost"}
@@ -373,7 +507,7 @@ const EnhancedProjectsModule = () => {
         <p className="text-sm text-gray-600">
           Showing {filteredProjects.length} of {projects.length} projects
         </p>
-        {(searchTerm || statusFilter !== "all" || ownerFilter !== "all" || leadFilter !== "all") && (
+        {(searchTerm || statusFilter !== "all" || ownerFilter !== "all") && (
           <Button
             variant="ghost"
             size="sm"
@@ -381,7 +515,6 @@ const EnhancedProjectsModule = () => {
               setSearchTerm("");
               setStatusFilter("all");
               setOwnerFilter("all");
-              setLeadFilter("all");
             }}
           >
             Clear Filters
@@ -389,206 +522,12 @@ const EnhancedProjectsModule = () => {
         )}
       </div>
 
-      {/* Projects Content */}
+      {/* Projects Display */}
       {loading ? (
         <div className="text-center py-12">
           <p className="text-gray-500">Loading projects...</p>
         </div>
-      ) : viewMode === 'table' ? (
-        <div className="space-y-6">
-          {groupByLead ? (
-            Object.entries(groupedProjects).map(([leadName, leadProjects]) => (
-              <Card key={leadName}>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <User className="w-5 h-5" />
-                    {leadName} ({leadProjects.length} projects)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Project Name</TableHead>
-                        <TableHead>Deal Name</TableHead>
-                        <TableHead>Company</TableHead>
-                        <TableHead>Project Owner</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Due Date</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {leadProjects.map((project) => (
-                        <TableRow key={project.id}>
-                          <TableCell className="font-medium">{project.title}</TableCell>
-                          <TableCell>{getDealName(project.linked_deal_id)}</TableCell>
-                          <TableCell>{project.company_name}</TableCell>
-                          <TableCell>{project.project_owner || 'Unassigned'}</TableCell>
-                          <TableCell>
-                            <Badge className={getStatusColor(project.status)}>
-                              {project.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {project.due_date ? format(project.due_date.toDate(), "MMM dd, yyyy") : "No due date"}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleDelete(project.id!, project.title)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <Card>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Project Name</TableHead>
-                    <TableHead>Lead Name</TableHead>
-                    <TableHead>Deal Name</TableHead>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Project Owner</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProjects.map((project) => (
-                    <TableRow key={project.id}>
-                      <TableCell className="font-medium">{project.title}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="link"
-                          className="p-0 h-auto text-blue-600 hover:text-blue-800"
-                          onClick={() => handleLeadClick(project.lead_id)}
-                        >
-                          <User className="w-4 h-4 mr-1" />
-                          {project.lead_name}
-                        </Button>
-                      </TableCell>
-                      <TableCell>{getDealName(project.linked_deal_id)}</TableCell>
-                      <TableCell>{project.company_name}</TableCell>
-                      <TableCell>{project.project_owner || 'Unassigned'}</TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(project.status)}>
-                          {project.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {project.due_date ? format(project.due_date.toDate(), "MMM dd, yyyy") : "No due date"}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDelete(project.id!, project.title)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              
-              {filteredProjects.length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-gray-500 text-lg">No projects found</p>
-                  <p className="text-gray-400 mt-2">
-                    {searchTerm || statusFilter !== "all" || ownerFilter !== "all" || leadFilter !== "all"
-                      ? "Try adjusting your filters"
-                      : "Projects are automatically created from completed deals"
-                    }
-                  </p>
-                </div>
-              )}
-            </Card>
-          )}
-        </div>
-      ) : (
-        // Card View
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProjects.map((project) => (
-            <Card key={project.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">{project.title}</CardTitle>
-                    <p className="text-gray-600 mt-1">
-                      Lead: <Button
-                        variant="link"
-                        className="p-0 h-auto text-blue-600 hover:text-blue-800"
-                        onClick={() => handleLeadClick(project.lead_id)}
-                      >
-                        {project.lead_name}
-                      </Button>
-                    </p>
-                    <p className="text-gray-600">Owner: {project.project_owner || 'Unassigned'}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className={getStatusColor(project.status)}>
-                      {project.status}
-                    </Badge>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDelete(project.id!, project.title)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Deal:</span>
-                    <span className="text-sm font-medium">{getDealName(project.linked_deal_id)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Company:</span>
-                    <span className="text-sm">{project.company_name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Due Date:</span>
-                    <span className="text-sm">
-                      {project.due_date ? format(project.due_date.toDate(), "MMM dd, yyyy") : "No due date"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Created:</span>
-                    <span className="text-sm">{project.createdAt?.toDate().toLocaleDateString()}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          
-          {filteredProjects.length === 0 && (
-            <div className="col-span-full text-center py-12">
-              <p className="text-gray-500 text-lg">No projects found</p>
-              <p className="text-gray-400 mt-2">
-                {searchTerm || statusFilter !== "all" || ownerFilter !== "all" || leadFilter !== "all"
-                  ? "Try adjusting your filters"
-                  : "Projects are automatically created from completed deals"
-                }
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+      ) : viewMode === 'card' ? renderCardView() : renderTableView()}
     </div>
   );
 };

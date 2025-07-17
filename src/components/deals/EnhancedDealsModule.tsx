@@ -18,8 +18,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { dealService, type Deal } from "@/services/firestoreService";
-import { Plus, DollarSign, TrendingUp, Clock, Users, Search, Filter } from "lucide-react";
+import { Plus, DollarSign, TrendingUp, Clock, Users, Search, Filter, Grid, List, FileText, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import DealForm from "./DealForm";
@@ -32,6 +40,10 @@ const EnhancedDealsModule = () => {
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [showLost, setShowLost] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
+  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
+  const [isDocumentsOpen, setIsDocumentsOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -81,6 +93,44 @@ const EnhancedDealsModule = () => {
     setFilteredDeals(filtered);
   };
 
+  const handleFileUpload = async (file: File, documentType: 'proposal' | 'quotation') => {
+    if (!selectedDeal) return;
+
+    try {
+      setUploading(true);
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('dealId', selectedDeal.id!);
+      formData.append('leadName', selectedDeal.company_name);
+      formData.append('documentType', documentType);
+      formData.append('dealName', selectedDeal.deal_name);
+
+      const response = await fetch('https://crm7.app.n8n.cloud/webhook/upload-to-onedrive', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: `${documentType} uploaded successfully to OneDrive`,
+        });
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      console.error('❌ Error uploading file:', error);
+      toast({
+        title: "Error",
+        description: `Failed to upload ${documentType}`,
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const getStats = () => {
     return {
       total: deals.length,
@@ -93,16 +143,144 @@ const EnhancedDealsModule = () => {
   const getStageColor = (stage: string) => {
     switch (stage) {
       case 'Lead': return 'bg-gray-100 text-gray-800';
-      case 'Qualified': return 'bg-blue-100 text-blue-800';
-      case 'Proposal': return 'bg-yellow-100 text-yellow-800';
+      case 'Proposal Sent': return 'bg-blue-100 text-blue-800';
       case 'Negotiation': return 'bg-orange-100 text-orange-800';
-      case 'Closed Won': return 'bg-green-100 text-green-800';
-      case 'Closed Lost': return 'bg-red-100 text-red-800';
+      case 'Won': return 'bg-green-100 text-green-800';
+      case 'Lost': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   const stats = getStats();
+
+  const renderCardView = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {filteredDeals.map((deal) => (
+        <Card key={deal.id} className="hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <div className="flex justify-between items-start">
+              <div>
+                <CardTitle className="text-lg">{deal.deal_name}</CardTitle>
+                <p className="text-gray-600 text-sm mt-1">{deal.company_name}</p>
+              </div>
+              <Badge className={getStageColor(deal.deal_stage)}>
+                {deal.deal_stage}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">Value:</span>
+                <span className="font-medium">${(deal.value || 0).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">Tasks:</span>
+                <Badge variant="outline">{deal.tasks_count || 0}</Badge>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">Created:</span>
+                <span className="text-sm">{deal.createdAt?.toDate().toLocaleDateString()}</span>
+              </div>
+              
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedDeal(deal);
+                    setIsDocumentsOpen(true);
+                  }}
+                >
+                  <FileText className="w-4 h-4 mr-1" />
+                  Documents
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+      
+      {filteredDeals.length === 0 && (
+        <div className="col-span-full text-center py-12">
+          <p className="text-gray-500 text-lg">No deals found</p>
+          <p className="text-gray-400 text-sm mt-2">
+            {searchTerm || stageFilter !== "all"
+              ? "Try adjusting your filters"
+              : "Add your first deal to get started"
+            }
+          </p>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderTableView = () => (
+    <Card>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Deal Name</TableHead>
+              <TableHead>Company</TableHead>
+              <TableHead>Stage</TableHead>
+              <TableHead>Value</TableHead>
+              <TableHead>Tasks</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredDeals.map((deal) => (
+              <TableRow key={deal.id}>
+                <TableCell>
+                  <p className="font-medium">{deal.deal_name}</p>
+                </TableCell>
+                <TableCell>{deal.company_name}</TableCell>
+                <TableCell>
+                  <Badge className={getStageColor(deal.deal_stage)}>
+                    {deal.deal_stage}
+                  </Badge>
+                </TableCell>
+                <TableCell>${(deal.value || 0).toLocaleString()}</TableCell>
+                <TableCell>
+                  <Badge variant="outline">{deal.tasks_count || 0}</Badge>
+                </TableCell>
+                <TableCell>{deal.createdAt?.toDate().toLocaleDateString()}</TableCell>
+                <TableCell>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedDeal(deal);
+                      setIsDocumentsOpen(true);
+                    }}
+                  >
+                    <FileText className="w-4 h-4 mr-1" />
+                    Documents
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+            
+            {filteredDeals.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-12">
+                  <p className="text-gray-500 text-lg">No deals found</p>
+                  <p className="text-gray-400 text-sm mt-2">
+                    {searchTerm || stageFilter !== "all"
+                      ? "Try adjusting your filters"
+                      : "Add your first deal to get started"
+                    }
+                  </p>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="p-6">
@@ -112,26 +290,46 @@ const EnhancedDealsModule = () => {
           <h1 className="text-3xl font-bold text-gray-900">Deals</h1>
           <p className="text-gray-600 mt-2">Track and manage your sales pipeline</p>
         </div>
-        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-black text-white hover:bg-gray-800">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Deal
+        <div className="flex gap-2">
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('table')}
+            >
+              <List className="w-4 h-4 mr-2" />
+              Table
             </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Add New Deal</DialogTitle>
-            </DialogHeader>
-            <DealForm 
-              onSuccess={() => {
-                setIsFormOpen(false);
-                loadDeals();
-              }}
-              onCancel={() => setIsFormOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+            <Button
+              variant={viewMode === 'card' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('card')}
+            >
+              <Grid className="w-4 h-4 mr-2" />
+              Cards
+            </Button>
+          </div>
+          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-black text-white hover:bg-gray-800">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Deal
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Add New Deal</DialogTitle>
+              </DialogHeader>
+              <DealForm 
+                onSuccess={() => {
+                  setIsFormOpen(false);
+                  loadDeals();
+                }}
+                onCancel={() => setIsFormOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -207,11 +405,10 @@ const EnhancedDealsModule = () => {
             <SelectContent>
               <SelectItem value="all">All Stages</SelectItem>
               <SelectItem value="Lead">Lead</SelectItem>
-              <SelectItem value="Qualified">Qualified</SelectItem>
-              <SelectItem value="Proposal">Proposal</SelectItem>
+              <SelectItem value="Proposal Sent">Proposal Sent</SelectItem>
               <SelectItem value="Negotiation">Negotiation</SelectItem>
-              <SelectItem value="Closed Won">Closed Won</SelectItem>
-              <SelectItem value="Closed Lost">Closed Lost</SelectItem>
+              <SelectItem value="Won">Won</SelectItem>
+              <SelectItem value="Lost">Lost</SelectItem>
             </SelectContent>
           </Select>
 
@@ -225,54 +422,112 @@ const EnhancedDealsModule = () => {
         </div>
       </div>
 
-      {/* Deals Grid */}
+      {/* Results Info */}
+      <div className="flex justify-between items-center mb-4">
+        <p className="text-sm text-gray-600">
+          Showing {filteredDeals.length} of {deals.length} deals
+        </p>
+        {(searchTerm || stageFilter !== "all") && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSearchTerm("");
+              setStageFilter("all");
+            }}
+          >
+            Clear Filters
+          </Button>
+        )}
+      </div>
+
+      {/* Deals Display */}
       {loading ? (
         <div className="text-center py-12">
           <p className="text-gray-500">Loading deals...</p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredDeals.map((deal) => (
-            <Card key={deal.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">{deal.deal_name}</CardTitle>
-                    <p className="text-gray-600 text-sm mt-1">{deal.company_name}</p>
-                  </div>
-                  <Badge className={getStageColor(deal.deal_stage)}>
-                    {deal.deal_stage}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Value:</span>
-                    <span className="font-medium">${(deal.value || 0).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Created:</span>
-                    <span className="text-sm">{deal.createdAt?.toDate().toLocaleDateString()}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+      ) : viewMode === 'card' ? renderCardView() : renderTableView()}
+
+      {/* Documents Dialog */}
+      <Dialog open={isDocumentsOpen} onOpenChange={setIsDocumentsOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>
+              Documents for {selectedDeal?.deal_name}
+            </DialogTitle>
+          </DialogHeader>
           
-          {filteredDeals.length === 0 && (
-            <div className="col-span-full text-center py-12">
-              <p className="text-gray-500 text-lg">No deals found</p>
-              <p className="text-gray-400 text-sm mt-2">
-                {searchTerm || stageFilter !== "all"
-                  ? "Try adjusting your filters"
-                  : "Add your first deal to get started"
-                }
-              </p>
+          <div className="space-y-4">
+            <div className="text-sm text-gray-600">
+              Upload documents for <strong>{selectedDeal?.company_name}</strong>
             </div>
-          )}
-        </div>
-      )}
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="proposal-upload">
+                  <Button 
+                    variant="outline" 
+                    className="w-full h-20 flex flex-col items-center justify-center cursor-pointer"
+                    disabled={uploading}
+                    asChild
+                  >
+                    <div>
+                      <Upload className="w-6 h-6 mb-2" />
+                      Upload Proposal
+                    </div>
+                  </Button>
+                </label>
+                <input
+                  id="proposal-upload"
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.txt"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleFileUpload(file, 'proposal');
+                    }
+                  }}
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="quotation-upload">
+                  <Button 
+                    variant="outline" 
+                    className="w-full h-20 flex flex-col items-center justify-center cursor-pointer"
+                    disabled={uploading}
+                    asChild
+                  >
+                    <div>
+                      <Upload className="w-6 h-6 mb-2" />
+                      Upload Quotation
+                    </div>
+                  </Button>
+                </label>
+                <input
+                  id="quotation-upload"
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleFileUpload(file, 'quotation');
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            
+            {uploading && (
+              <div className="text-center py-4">
+                <p className="text-sm text-gray-600">Uploading to OneDrive...</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

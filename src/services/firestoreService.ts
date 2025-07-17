@@ -1,4 +1,3 @@
-
 import { 
   collection, 
   addDoc, 
@@ -401,6 +400,19 @@ export const projectService = {
     }
   },
 
+  async updateProjectOwner(projectId: string, projectOwner: string) {
+    console.log('🔄 Updating project owner:', projectId, 'to', projectOwner);
+    try {
+      await updateDoc(doc(db, 'projects', projectId), {
+        project_owner: projectOwner
+      });
+      console.log('✅ Project owner updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating project owner:', error);
+      throw error;
+    }
+  },
+
   async createFromDeal(dealId: string, dealData: any) {
     console.log('🔄 Auto-creating project from deal:', dealId);
     
@@ -416,6 +428,7 @@ export const projectService = {
       status: 'Active' as const,
       lead_id: dealData.contact_id,
       lead_name: contactData?.name || 'Unknown Lead',
+      project_owner: 'Arpit', // Default project owner
       due_date: dealData.end_date,
       milestones: [],
       assigned_team: [dealData.userRef],
@@ -446,6 +459,7 @@ export const projectService = {
   async getAll(userRef: string, filters?: {
     status?: Project['status'];
     lead_id?: string;
+    project_owner?: string;
     showLost?: boolean;
   }) {
     console.log('🔍 Fetching enhanced projects for user:', userRef, 'with filters:', filters);
@@ -458,6 +472,10 @@ export const projectService = {
 
       if (filters?.lead_id) {
         q = query(q, where('lead_id', '==', filters.lead_id));
+      }
+
+      if (filters?.project_owner) {
+        q = query(q, where('project_owner', '==', filters.project_owner));
       }
 
       const querySnapshot = await getDocs(q);

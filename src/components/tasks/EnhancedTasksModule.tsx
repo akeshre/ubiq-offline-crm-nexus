@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,7 +26,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { taskService, dealService, projectService, type Task, type Deal, type Project } from "@/services/firestoreService";
-import { Plus, Calendar, AlertTriangle, Search, Filter, Trash2, Clock, CheckCircle } from "lucide-react";
+import { Plus, Calendar, AlertTriangle, Search, Filter, Trash2, Clock, CheckCircle, Grid, List } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
@@ -43,6 +42,7 @@ const EnhancedTasksModule = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -202,6 +202,193 @@ const EnhancedTasksModule = () => {
 
   const stats = getStats();
 
+  const renderCardView = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {filteredTasks.map((task) => (
+        <Card key={task.id} className="hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <div className="flex justify-between items-start">
+              <div>
+                <CardTitle className="text-lg">{task.taskTitle}</CardTitle>
+                {task.description && (
+                  <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                )}
+              </div>
+              <Badge className={getPriorityColor(task.priority)}>
+                {task.priority}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Status:</span>
+                <Select
+                  value={task.status}
+                  onValueChange={(value) => handleStatusChange(task.id!, value as Task['status'])}
+                >
+                  <SelectTrigger className="w-32">
+                    <Badge className={getStatusColor(task.status)}>
+                      {task.status}
+                    </Badge>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="In Progress">In Progress</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                    <SelectItem value="Overdue">Overdue</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Due Date:</span>
+                <span className="text-sm">
+                  {task.due_date instanceof Date ? format(task.due_date, "PPP") : 
+                   task.due_date ? format(task.due_date.toDate(), "PPP") : "No date"}
+                </span>
+              </div>
+
+              {(task.linked_deal_id || task.linked_project_id) && (
+                <div className="space-y-1">
+                  {task.linked_deal_id && (
+                    <Badge variant="outline" className="text-xs">
+                      Deal: {getDealName(task.linked_deal_id)}
+                    </Badge>
+                  )}
+                  {task.linked_project_id && (
+                    <Badge variant="outline" className="text-xs">
+                      Project: {getProjectName(task.linked_project_id)}
+                    </Badge>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => handleDelete(task.id!, task.taskTitle)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+      
+      {filteredTasks.length === 0 && (
+        <div className="col-span-full text-center py-12">
+          <p className="text-gray-500 text-lg">No tasks found</p>
+          <p className="text-gray-400 text-sm mt-2">
+            {searchTerm || statusFilter !== "all" || priorityFilter !== "all"
+              ? "Try adjusting your filters"
+              : "Add your first task to get started"
+            }
+          </p>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderTableView = () => (
+    <Card>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Task Title</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Priority</TableHead>
+              <TableHead>Due Date</TableHead>
+              <TableHead>Linked To</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredTasks.map((task) => (
+              <TableRow key={task.id}>
+                <TableCell>
+                  <div>
+                    <p className="font-medium">{task.taskTitle}</p>
+                    {task.description && (
+                      <p className="text-sm text-gray-600 truncate max-w-xs">{task.description}</p>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Select
+                    value={task.status}
+                    onValueChange={(value) => handleStatusChange(task.id!, value as Task['status'])}
+                  >
+                    <SelectTrigger className="w-32">
+                      <Badge className={getStatusColor(task.status)}>
+                        {task.status}
+                      </Badge>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Pending">Pending</SelectItem>
+                      <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Completed">Completed</SelectItem>
+                      <SelectItem value="Overdue">Overdue</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell>
+                  <Badge className={getPriorityColor(task.priority)}>
+                    {task.priority}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  {task.due_date instanceof Date ? format(task.due_date, "PPP") : 
+                   task.due_date ? format(task.due_date.toDate(), "PPP") : "No date"}
+                </TableCell>
+                <TableCell>
+                  <div className="space-y-1">
+                    {task.linked_deal_id && (
+                      <Badge variant="outline" className="text-xs">
+                        Deal: {getDealName(task.linked_deal_id)}
+                      </Badge>
+                    )}
+                    {task.linked_project_id && (
+                      <Badge variant="outline" className="text-xs">
+                        Project: {getProjectName(task.linked_project_id)}
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDelete(task.id!, task.taskTitle)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+            
+            {filteredTasks.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-12">
+                  <p className="text-gray-500 text-lg">No tasks found</p>
+                  <p className="text-gray-400 text-sm mt-2">
+                    {searchTerm || statusFilter !== "all" || priorityFilter !== "all"
+                      ? "Try adjusting your filters"
+                      : "Add your first task to get started"
+                    }
+                  </p>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="p-6">
       {/* Header */}
@@ -210,26 +397,46 @@ const EnhancedTasksModule = () => {
           <h1 className="text-3xl font-bold text-gray-900">Tasks</h1>
           <p className="text-gray-600 mt-2">Manage and track tasks across deals and projects</p>
         </div>
-        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-black text-white hover:bg-gray-800">
-              <Plus className="w-4 h-4 mr-2" />
-              New Task
+        <div className="flex gap-2">
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('table')}
+            >
+              <List className="w-4 h-4 mr-2" />
+              Table
             </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Add New Task</DialogTitle>
-            </DialogHeader>
-            <TaskForm 
-              onSuccess={() => {
-                setIsFormOpen(false);
-                loadTasks();
-              }}
-              onCancel={() => setIsFormOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+            <Button
+              variant={viewMode === 'card' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('card')}
+            >
+              <Grid className="w-4 h-4 mr-2" />
+              Cards
+            </Button>
+          </div>
+          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-black text-white hover:bg-gray-800">
+                <Plus className="w-4 h-4 mr-2" />
+                New Task
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Add New Task</DialogTitle>
+              </DialogHeader>
+              <TaskForm 
+                onSuccess={() => {
+                  setIsFormOpen(false);
+                  loadTasks();
+                }}
+                onCancel={() => setIsFormOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Task Stats */}
@@ -357,107 +564,12 @@ const EnhancedTasksModule = () => {
         )}
       </div>
 
-      {/* Tasks Table */}
+      {/* Tasks Display */}
       {loading ? (
         <div className="text-center py-12">
           <p className="text-gray-500">Loading tasks...</p>
         </div>
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Task Title</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Linked To</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTasks.map((task) => (
-                  <TableRow key={task.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{task.taskTitle}</p>
-                        {task.description && (
-                          <p className="text-sm text-gray-600 truncate max-w-xs">{task.description}</p>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={task.status}
-                        onValueChange={(value) => handleStatusChange(task.id!, value as Task['status'])}
-                      >
-                        <SelectTrigger className="w-32">
-                          <Badge className={getStatusColor(task.status)}>
-                            {task.status}
-                          </Badge>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Pending">Pending</SelectItem>
-                          <SelectItem value="In Progress">In Progress</SelectItem>
-                          <SelectItem value="Completed">Completed</SelectItem>
-                          <SelectItem value="Overdue">Overdue</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getPriorityColor(task.priority)}>
-                        {task.priority}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {task.due_date instanceof Date ? format(task.due_date, "PPP") : 
-                       task.due_date ? format(task.due_date.toDate(), "PPP") : "No date"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        {task.linked_deal_id && (
-                          <Badge variant="outline" className="text-xs">
-                            Deal: {getDealName(task.linked_deal_id)}
-                          </Badge>
-                        )}
-                        {task.linked_project_id && (
-                          <Badge variant="outline" className="text-xs">
-                            Project: {getProjectName(task.linked_project_id)}
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(task.id!, task.taskTitle)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                
-                {filteredTasks.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-12">
-                      <p className="text-gray-500 text-lg">No tasks found</p>
-                      <p className="text-gray-400 text-sm mt-2">
-                        {searchTerm || statusFilter !== "all" || priorityFilter !== "all"
-                          ? "Try adjusting your filters"
-                          : "Add your first task to get started"
-                        }
-                      </p>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+      ) : viewMode === 'card' ? renderCardView() : renderTableView()}
     </div>
   );
 };
