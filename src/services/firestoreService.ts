@@ -1,3 +1,4 @@
+
 import { 
   collection, 
   addDoc, 
@@ -66,6 +67,7 @@ export interface Project {
   status: 'Active' | 'Completed' | 'Paused';
   lead_id: string;
   lead_name: string;
+  project_owner?: string;
   due_date?: Timestamp;
   milestones: Array<{
     title: string;
