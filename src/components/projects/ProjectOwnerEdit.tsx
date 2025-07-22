@@ -84,7 +84,7 @@ const ProjectOwnerEdit: React.FC<ProjectOwnerEditProps> = ({
           Edit Owner
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[400px]">
+      <DialogContent className="sm:max-w-[400px] overflow-visible">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="w-5 h-5" />
@@ -104,9 +104,17 @@ const ProjectOwnerEdit: React.FC<ProjectOwnerEditProps> = ({
               <SelectTrigger className="mt-1">
                 <SelectValue placeholder="Select team member" />
               </SelectTrigger>
-              <SelectContent className="z-50 bg-white">
+              <SelectContent 
+                className="z-[100] bg-white border shadow-lg"
+                position="popper"
+                sideOffset={4}
+              >
                 {TEAM_MEMBERS.map((member) => (
-                  <SelectItem key={member} value={member}>
+                  <SelectItem 
+                    key={member} 
+                    value={member}
+                    className="cursor-pointer hover:bg-gray-100"
+                  >
                     {member}
                   </SelectItem>
                 ))}
