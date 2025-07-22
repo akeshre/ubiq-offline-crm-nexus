@@ -404,7 +404,6 @@ const EnhancedDealsModule = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Stages</SelectItem>
-              <SelectItem value="Lead">Lead</SelectItem>
               <SelectItem value="Proposal Sent">Proposal Sent</SelectItem>
               <SelectItem value="Negotiation">Negotiation</SelectItem>
               <SelectItem value="Won">Won</SelectItem>
@@ -462,9 +461,9 @@ const EnhancedDealsModule = () => {
               Upload documents for <strong>{selectedDeal?.company_name}</strong>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="flex justify-center">
               <div>
-                <label htmlFor="proposal-upload">
+                <label htmlFor="documents-upload">
                   <Button 
                     variant="outline" 
                     className="w-full h-20 flex flex-col items-center justify-center cursor-pointer"
@@ -473,47 +472,19 @@ const EnhancedDealsModule = () => {
                   >
                     <div>
                       <Upload className="w-6 h-6 mb-2" />
-                      Upload Proposal
+                      Upload Documents
                     </div>
                   </Button>
                 </label>
                 <input
-                  id="proposal-upload"
+                  id="documents-upload"
                   type="file"
                   className="hidden"
-                  accept=".pdf,.doc,.docx,.txt"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
                       handleFileUpload(file, 'proposal');
-                    }
-                  }}
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="quotation-upload">
-                  <Button 
-                    variant="outline" 
-                    className="w-full h-20 flex flex-col items-center justify-center cursor-pointer"
-                    disabled={uploading}
-                    asChild
-                  >
-                    <div>
-                      <Upload className="w-6 h-6 mb-2" />
-                      Upload Quotation
-                    </div>
-                  </Button>
-                </label>
-                <input
-                  id="quotation-upload"
-                  type="file"
-                  className="hidden"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      handleFileUpload(file, 'quotation');
                     }
                   }}
                 />

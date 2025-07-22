@@ -114,7 +114,6 @@ const DealForm: React.FC<DealFormProps> = ({ onSuccess, onCancel }) => {
             <SelectValue placeholder="Select stage" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="Lead">Lead</SelectItem>
             <SelectItem value="Proposal Sent">Proposal Sent</SelectItem>
             <SelectItem value="Negotiation">Negotiation</SelectItem>
             <SelectItem value="Won">Won</SelectItem>

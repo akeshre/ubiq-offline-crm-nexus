@@ -21,12 +21,18 @@ interface ProjectFormProps {
   onCancel: () => void;
 }
 
-const PROJECT_OWNERS = [
-  "Arpit",
-  "Sarvjeet", 
+const PROJECT_LEADS = [
   "Rahul",
-  "Rohit",
-  "Praveen"
+  "Arpit", 
+  "Praveen",
+  "Sarvjeet"
+];
+
+const PROJECT_TEAM = [
+  "Manisha",
+  "Suvam",
+  "Jagtar",
+  "Adarsh"
 ];
 
 const ProjectForm: React.FC<ProjectFormProps> = ({ onSuccess, onCancel }) => {
@@ -82,7 +88,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ onSuccess, onCancel }) => {
         contact_id: data.lead_id,
         company_name: selectedDeal?.company_name || '',
         lead_id: data.lead_id,
-        lead_name: selectedContact?.name || '',
+        lead_name: data.lead_name || '',
         project_owner: data.project_owner,
         status: 'Active' as const,
         due_date: data.due_date ? Timestamp.fromDate(new Date(data.due_date)) : undefined,
@@ -142,15 +148,15 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ onSuccess, onCancel }) => {
       </div>
 
       <div>
-        <Label htmlFor="lead_id">Project Lead</Label>
-        <Select onValueChange={(value) => setValue("lead_id", value)}>
+        <Label htmlFor="lead_name">Project Lead</Label>
+        <Select onValueChange={(value) => setValue("lead_name", value)}>
           <SelectTrigger>
             <SelectValue placeholder="Select lead" />
           </SelectTrigger>
           <SelectContent>
-            {contacts.map((contact) => (
-              <SelectItem key={contact.id} value={contact.id!}>
-                {contact.name} - {contact.company_name}
+            {PROJECT_LEADS.map((lead) => (
+              <SelectItem key={lead} value={lead}>
+                {lead}
               </SelectItem>
             ))}
           </SelectContent>
@@ -158,15 +164,15 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ onSuccess, onCancel }) => {
       </div>
 
       <div>
-        <Label htmlFor="project_owner">Project Owner</Label>
+        <Label htmlFor="project_owner">Project Owner (Team)</Label>
         <Select onValueChange={(value) => setValue("project_owner", value)}>
           <SelectTrigger>
-            <SelectValue placeholder="Select project owner" />
+            <SelectValue placeholder="Select team member" />
           </SelectTrigger>
           <SelectContent>
-            {PROJECT_OWNERS.map((owner) => (
-              <SelectItem key={owner} value={owner}>
-                {owner}
+            {PROJECT_TEAM.map((member) => (
+              <SelectItem key={member} value={member}>
+                {member}
               </SelectItem>
             ))}
           </SelectContent>

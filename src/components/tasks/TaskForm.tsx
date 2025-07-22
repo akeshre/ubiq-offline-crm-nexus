@@ -21,6 +21,13 @@ interface TaskFormProps {
   onCancel: () => void;
 }
 
+const TEAM_MEMBERS = [
+  "Manisha",
+  "Suvam", 
+  "Jagtar",
+  "Adarsh"
+];
+
 const TaskForm: React.FC<TaskFormProps> = ({ onSuccess, onCancel }) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -74,7 +81,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSuccess, onCancel }) => {
         due_date: data.due_date ? Timestamp.fromDate(new Date(data.due_date)) : Timestamp.now(),
         linked_deal_id: data.linked_deal_id || '',
         linked_project_id: data.linked_project_id || '',
-        assigned_to: user.user_id,
+        assigned_to: data.assigned_to || user.user_id,
         userRef: user.user_id
       };
 
@@ -101,11 +108,11 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSuccess, onCancel }) => {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
-        <Label htmlFor="task_name">Task Name</Label>
+        <Label htmlFor="task_name">Task Title</Label>
         <Input
           id="task_name"
-          {...register("task_name", { required: "Task name is required" })}
-          placeholder="Enter task name"
+          {...register("task_name", { required: "Task title is required" })}
+          placeholder="Enter task title"
         />
         {errors.task_name && (
           <p className="text-red-500 text-sm mt-1">{errors.task_name.message as string}</p>
@@ -122,6 +129,25 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSuccess, onCancel }) => {
       </div>
 
       <div>
+        <Label htmlFor="assigned_to">Assigned To</Label>
+        <Select onValueChange={(value) => setValue("assigned_to", value)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select team member" />
+          </SelectTrigger>
+          <SelectContent>
+            {TEAM_MEMBERS.map((member) => (
+              <SelectItem key={member} value={member}>
+                {member}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {errors.assigned_to && (
+          <p className="text-red-500 text-sm mt-1">{errors.assigned_to.message as string}</p>
+        )}
+      </div>
+
+      <div>
         <Label htmlFor="priority">Priority</Label>
         <Select onValueChange={(value) => setValue("priority", value)}>
           <SelectTrigger>
@@ -133,6 +159,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSuccess, onCancel }) => {
             <SelectItem value="High">High</SelectItem>
           </SelectContent>
         </Select>
+        {errors.priority && (
+          <p className="text-red-500 text-sm mt-1">{errors.priority.message as string}</p>
+        )}
       </div>
 
       <div>
@@ -140,8 +169,11 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSuccess, onCancel }) => {
         <Input
           id="due_date"
           type="date"
-          {...register("due_date")}
+          {...register("due_date", { required: "Due date is required" })}
         />
+        {errors.due_date && (
+          <p className="text-red-500 text-sm mt-1">{errors.due_date.message as string}</p>
+        )}
       </div>
 
       <div>
@@ -162,7 +194,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSuccess, onCancel }) => {
       </div>
 
       <div>
-        <Label htmlFor="linked_project_id">Linked Project (Optional)</Label>
+        <Label htmlFor="linked_project_id">Related Project</Label>
         <Select onValueChange={(value) => setValue("linked_project_id", value)}>
           <SelectTrigger>
             <SelectValue placeholder="Select project" />
