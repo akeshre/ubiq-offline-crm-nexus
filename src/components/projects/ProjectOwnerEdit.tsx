@@ -104,7 +104,7 @@ const ProjectOwnerEdit: React.FC<ProjectOwnerEditProps> = ({
               <SelectTrigger className="mt-1">
                 <SelectValue placeholder="Select team member" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-50 bg-white">
                 {TEAM_MEMBERS.map((member) => (
                   <SelectItem key={member} value={member}>
                     {member}

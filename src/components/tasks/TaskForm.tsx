@@ -36,7 +36,17 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSuccess, onCancel }) => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm();
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
+    defaultValues: {
+      task_name: '',
+      description: '',
+      assigned_to: '',
+      priority: '',
+      due_date: '',
+      linked_deal_id: '',
+      linked_project_id: ''
+    }
+  });
 
   useEffect(() => {
     if (user) {
@@ -73,6 +83,25 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSuccess, onCancel }) => {
     try {
       setSubmitting(true);
       
+      // Validate required fields
+      if (!data.assigned_to) {
+        toast({
+          title: "Error",
+          description: "Please select who to assign the task to",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      if (!data.priority) {
+        toast({
+          title: "Error", 
+          description: "Please select a priority level",
+          variant: "destructive"
+        });
+        return;
+      }
+
       const taskData = {
         taskTitle: data.task_name,
         description: data.description || '',
@@ -81,7 +110,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSuccess, onCancel }) => {
         due_date: data.due_date ? Timestamp.fromDate(new Date(data.due_date)) : Timestamp.now(),
         linked_deal_id: data.linked_deal_id || '',
         linked_project_id: data.linked_project_id || '',
-        assigned_to: data.assigned_to || user.user_id,
+        assigned_to: data.assigned_to,
         userRef: user.user_id
       };
 
@@ -134,7 +163,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSuccess, onCancel }) => {
           <SelectTrigger>
             <SelectValue placeholder="Select team member" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="z-50 bg-white">
             {TEAM_MEMBERS.map((member) => (
               <SelectItem key={member} value={member}>
                 {member}
@@ -153,7 +182,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSuccess, onCancel }) => {
           <SelectTrigger>
             <SelectValue placeholder="Select priority" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="z-50 bg-white">
             <SelectItem value="Low">Low</SelectItem>
             <SelectItem value="Medium">Medium</SelectItem>
             <SelectItem value="High">High</SelectItem>
