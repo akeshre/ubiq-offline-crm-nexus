@@ -32,6 +32,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import ProjectForm from "./ProjectForm";
 import ProjectOwnerEdit from "./ProjectOwnerEdit";
+import ProjectLeadEdit from "./ProjectLeadEdit";
 
 const EnhancedProjectsModule = () => {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -284,15 +285,14 @@ const EnhancedProjectsModule = () => {
                 </TableCell>
                 <TableCell>{project.company_name}</TableCell>
                 <TableCell>
-                  <button 
-                    className="text-blue-600 hover:underline"
-                    onClick={() => {
-                      // Navigate to lead detail page
-                      console.log('Navigate to lead:', project.lead_id);
-                    }}
-                  >
-                    {project.lead_name}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <span>{project.lead_name || 'Not assigned'}</span>
+                    <ProjectLeadEdit
+                      projectId={project.id!}
+                      currentLead={project.lead_name}
+                      onSuccess={loadProjects}
+                    />
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">

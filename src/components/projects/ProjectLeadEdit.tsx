@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,34 +18,35 @@ import { projectService } from "@/services/firestoreService";
 import { useToast } from "@/hooks/use-toast";
 import { Edit, User } from "lucide-react";
 
-interface ProjectOwnerEditProps {
+interface ProjectLeadEditProps {
   projectId: string;
-  currentOwner?: string;
+  currentLead?: string;
   onSuccess: () => void;
 }
 
-const OWNER_MEMBERS = [
-  'Manisha',
-  'Suvam',
-  'Adarsh',
-  'Jagtar'
+const LEAD_MEMBERS = [
+  'Rahul',
+  'Rohit', 
+  'Arpit',
+  'Praveen',
+  'sarvjeet'
 ];
 
-const ProjectOwnerEdit: React.FC<ProjectOwnerEditProps> = ({
+const ProjectLeadEdit: React.FC<ProjectLeadEditProps> = ({
   projectId,
-  currentOwner,
+  currentLead,
   onSuccess
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedOwner, setSelectedOwner] = useState(currentOwner || '');
+  const [selectedLead, setSelectedLead] = useState(currentLead || '');
   const [updating, setUpdating] = useState(false);
   const { toast } = useToast();
 
   const handleUpdate = async () => {
-    if (!selectedOwner) {
+    if (!selectedLead) {
       toast({
         title: "Error",
-        description: "Please select a project owner",
+        description: "Please select a lead",
         variant: "destructive"
       });
       return;
@@ -54,20 +54,20 @@ const ProjectOwnerEdit: React.FC<ProjectOwnerEditProps> = ({
 
     try {
       setUpdating(true);
-      await projectService.updateProjectOwner(projectId, selectedOwner);
+      await projectService.updateProjectLead(projectId, selectedLead);
       
       toast({
         title: "Success",
-        description: "Project owner updated successfully",
+        description: "Project lead updated successfully",
       });
       
       setIsOpen(false);
       onSuccess();
     } catch (error) {
-      console.error('Error updating project owner:', error);
+      console.error('Error updating project lead:', error);
       toast({
         title: "Error",
-        description: "Failed to update project owner",
+        description: "Failed to update project lead",
         variant: "destructive"
       });
     } finally {
@@ -80,35 +80,35 @@ const ProjectOwnerEdit: React.FC<ProjectOwnerEditProps> = ({
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <Edit className="w-4 h-4 mr-1" />
-          Edit Owner
+          Edit Lead
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[400px] overflow-visible">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="w-5 h-5" />
-            Edit Project Owner
+            Edit Project Lead
           </DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium">Current Owner:</label>
-            <p className="text-sm text-gray-600">{currentOwner || 'Not assigned'}</p>
+            <label className="text-sm font-medium">Current Lead:</label>
+            <p className="text-sm text-gray-600">{currentLead || 'Not assigned'}</p>
           </div>
           
           <div>
-            <label className="text-sm font-medium">New Owner:</label>
-            <Select value={selectedOwner} onValueChange={setSelectedOwner}>
+            <label className="text-sm font-medium">New Lead:</label>
+            <Select value={selectedLead} onValueChange={setSelectedLead}>
               <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Select team member" />
+                <SelectValue placeholder="Select lead member" />
               </SelectTrigger>
               <SelectContent 
                 className="z-[100] bg-white border shadow-lg"
                 position="popper"
                 sideOffset={4}
               >
-                {OWNER_MEMBERS.map((member) => (
+                {LEAD_MEMBERS.map((member) => (
                   <SelectItem 
                     key={member} 
                     value={member}
@@ -124,10 +124,10 @@ const ProjectOwnerEdit: React.FC<ProjectOwnerEditProps> = ({
           <div className="flex gap-2 pt-4">
             <Button 
               onClick={handleUpdate} 
-              disabled={updating || !selectedOwner}
+              disabled={updating || !selectedLead}
               className="flex-1"
             >
-              {updating ? "Updating..." : "Update Owner"}
+              {updating ? "Updating..." : "Update Lead"}
             </Button>
             <Button 
               variant="outline" 
@@ -143,4 +143,4 @@ const ProjectOwnerEdit: React.FC<ProjectOwnerEditProps> = ({
   );
 };
 
-export default ProjectOwnerEdit;
+export default ProjectLeadEdit;
