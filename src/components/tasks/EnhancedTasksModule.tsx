@@ -416,40 +416,31 @@ const EnhancedTasksModule = () => {
               Cards
             </Button>
           </div>
-          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogTrigger asChild>
-              <Button 
-                className="bg-black text-white hover:bg-gray-800"
-                onClick={() => {
-                  console.log('🔄 New Task button clicked, opening dialog');
-                  setIsFormOpen(true);
-                }}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                New Task
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Add New Task</DialogTitle>
-              </DialogHeader>
-              {isFormOpen && (
-                <TaskForm 
-                  onSuccess={() => {
-                    console.log('✅ Task created successfully, closing dialog');
-                    setIsFormOpen(false);
-                    loadTasks();
-                  }}
-                  onCancel={() => {
-                    console.log('❌ Task creation cancelled, closing dialog');
-                    setIsFormOpen(false);
-                  }}
-                />
-              )}
-            </DialogContent>
-          </Dialog>
+          <Button 
+            className="bg-black text-white hover:bg-gray-800"
+            onClick={() => setIsFormOpen(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New Task
+          </Button>
         </div>
       </div>
+
+      {/* Task Dialog */}
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Task</DialogTitle>
+          </DialogHeader>
+          <TaskForm 
+            onSuccess={() => {
+              setIsFormOpen(false);
+              loadTasks();
+            }}
+            onCancel={() => setIsFormOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Task Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">

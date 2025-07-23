@@ -27,7 +27,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { dealService, type Deal } from "@/services/firestoreService";
-import { Plus, DollarSign, TrendingUp, Clock, Users, Search, Filter, Grid, List, FileText, Upload } from "lucide-react";
+import { Plus, DollarSign, TrendingUp, Clock, Users, Search, Filter, Grid, List, FileText, Upload, Table as TableIcon, LayoutGrid } from "lucide-react";
+import DocumentsManager from "./DocumentsManager";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import DealForm from "./DealForm";
@@ -40,7 +41,7 @@ const EnhancedDealsModule = () => {
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [showLost, setShowLost] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'card' | 'documents'>('table');
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [isDocumentsOpen, setIsDocumentsOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -308,6 +309,14 @@ const EnhancedDealsModule = () => {
               <Grid className="w-4 h-4 mr-2" />
               Cards
             </Button>
+            <Button
+              variant={viewMode === 'documents' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('documents')}
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Documents
+            </Button>
           </div>
           <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogTrigger asChild>
@@ -445,7 +454,13 @@ const EnhancedDealsModule = () => {
         <div className="text-center py-12">
           <p className="text-gray-500">Loading deals...</p>
         </div>
-      ) : viewMode === 'card' ? renderCardView() : renderTableView()}
+      ) : viewMode === 'documents' ? (
+        <DocumentsManager />
+      ) : viewMode === 'card' ? (
+        renderCardView()
+      ) : (
+        renderTableView()
+      )}
 
       {/* Documents Dialog */}
       <Dialog open={isDocumentsOpen} onOpenChange={setIsDocumentsOpen}>
