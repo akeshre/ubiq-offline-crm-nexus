@@ -134,6 +134,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSuccess, onCancel }) => {
     }
   };
 
+  console.log('📝 TaskForm rendering with props:', { onSuccess, onCancel });
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
