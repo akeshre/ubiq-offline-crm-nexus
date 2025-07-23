@@ -413,6 +413,19 @@ export const projectService = {
     }
   },
 
+  async updateProjectLead(projectId: string, leadName: string) {
+    console.log('🔄 Updating project lead:', projectId, 'to', leadName);
+    try {
+      await updateDoc(doc(db, 'projects', projectId), {
+        lead_name: leadName
+      });
+      console.log('✅ Project lead updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating project lead:', error);
+      throw error;
+    }
+  },
+
   async createFromDeal(dealId: string, dealData: any) {
     console.log('🔄 Auto-creating project from deal:', dealId);
     
